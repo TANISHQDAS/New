@@ -1,0 +1,414 @@
+/* AWS CloudScape Design System Inspired Theme */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --aws-squid-ink: #232f3e;
+  --aws-navy-dark: #192a3e;
+  --aws-orange: #ff9900;
+  --aws-orange-hover: #ec7211;
+  --aws-blue: #0972d3;
+  --aws-blue-hover: #033160;
+  --aws-bg-light: #f2f3f3;
+  --aws-card-bg: #ffffff;
+  --aws-border: #eaedd1;
+  --aws-border-subtle: #e9ebed;
+  --aws-text-dark: #16191f;
+  --aws-text-muted: #545b64;
+  --aws-font-family: "Amazon Ember", "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  --case1-green: #1d8102;
+  --case1-bg: #eaf5ea;
+  --case2-red: #d13212;
+  --case2-bg: #fdf2f2;
+  --case3-blue: #0972d3;
+  --case3-bg: #f1f8fe;
+  --case4-amber: #875900;
+  --case4-bg: #fff8e6;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--aws-font-family);
+  background-color: var(--aws-bg-light);
+  color: var(--aws-text-dark);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+.aws-header {
+  background-color: var(--aws-squid-ink);
+  color: #ffffff;
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 3px solid var(--aws-orange);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.aws-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.aws-logo {
+  background-color: var(--aws-orange);
+  color: var(--aws-squid-ink);
+  font-weight: 800;
+  font-size: 18px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  letter-spacing: -0.5px;
+}
+
+.aws-title h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.aws-title p {
+  font-size: 12px;
+  color: #aab7c4;
+}
+
+.aws-user-badge {
+  background-color: var(--aws-navy-dark);
+  border: 1px solid #3b4d61;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  color: var(--aws-orange);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aws-user-badge span {
+  color: #ffffff;
+}
+
+/* Control Bar */
+.aws-control-bar {
+  background-color: #ffffff;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--aws-border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.aws-dataset-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.aws-dataset-selector label {
+  font-weight: 600;
+  color: var(--aws-text-muted);
+}
+
+.aws-select {
+  padding: 8px 14px;
+  border-radius: 4px;
+  border: 1px solid #aab7c4;
+  font-family: inherit;
+  font-size: 14px;
+  background-color: #ffffff;
+  color: var(--aws-text-dark);
+  outline: none;
+  cursor: pointer;
+}
+
+.aws-select:focus {
+  border-color: var(--aws-blue);
+  box-shadow: 0 0 0 2px rgba(9,114,211,0.2);
+}
+
+.aws-btn {
+  background-color: var(--aws-orange);
+  color: #16191f;
+  font-weight: 700;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aws-btn:hover {
+  background-color: var(--aws-orange-hover);
+  color: #ffffff;
+}
+
+.aws-btn-secondary {
+  background-color: var(--aws-blue);
+  color: #ffffff;
+}
+
+.aws-btn-secondary:hover {
+  background-color: var(--aws-blue-hover);
+}
+
+/* Tabs */
+.aws-tabs {
+  display: flex;
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--aws-border-subtle);
+  padding: 0 24px;
+  gap: 24px;
+}
+
+.aws-tab {
+  padding: 12px 4px;
+  font-weight: 600;
+  color: var(--aws-text-muted);
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.aws-tab:hover {
+  color: var(--aws-blue);
+}
+
+.aws-tab.active {
+  color: var(--aws-blue);
+  border-bottom-color: var(--aws-blue);
+}
+
+/* Main Content Layout */
+.aws-container {
+  max-width: 1400px;
+  margin: 24px auto;
+  padding: 0 24px;
+}
+
+/* Stat Cards */
+.aws-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.aws-metric-card {
+  background-color: #ffffff;
+  border: 1px solid var(--aws-border-subtle);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.aws-metric-card .val {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--aws-squid-ink);
+  margin-top: 4px;
+}
+
+.aws-metric-card .label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--aws-text-muted);
+  font-weight: 600;
+}
+
+/* Section Card */
+.aws-card {
+  background-color: #ffffff;
+  border: 1px solid var(--aws-border-subtle);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.aws-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--aws-border-subtle);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.aws-card-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--aws-squid-ink);
+}
+
+/* Case Grid */
+.case-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.case-card {
+  border: 1px solid var(--aws-border-subtle);
+  border-radius: 8px;
+  padding: 18px;
+  background-color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.case-card.case1 { border-left: 6px solid var(--case1-green); }
+.case-card.case2 { border-left: 6px solid var(--case2-red); }
+.case-card.case3 { border-left: 6px solid var(--case3-blue); }
+.case-card.case4 { border-left: 6px solid var(--case4-amber); }
+
+.case-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.case1 .case-badge { background-color: var(--case1-bg); color: var(--case1-green); }
+.case2 .case-badge { background-color: var(--case2-bg); color: var(--case2-red); }
+.case3 .case-badge { background-color: var(--case3-bg); color: var(--case3-blue); }
+.case4 .case-badge { background-color: var(--case4-bg); color: var(--case4-amber); }
+
+.case-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--aws-squid-ink);
+}
+
+.case-summary {
+  font-size: 14px;
+  color: var(--aws-text-dark);
+  margin-bottom: 14px;
+}
+
+/* Evidence Comparison Box */
+.evidence-box {
+  background-color: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.evidence-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--aws-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.quote-block {
+  font-family: monospace;
+  font-size: 12.5px;
+  background-color: #ffffff;
+  border-left: 3px solid var(--aws-blue);
+  padding: 8px 12px;
+  margin: 6px 0;
+  border-radius: 0 4px 4px 0;
+  color: #2b3a4a;
+}
+
+.reasoning-box {
+  background-color: #f1f8fe;
+  border: 1px solid #bce0fd;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 13px;
+  color: #033160;
+  margin-top: 10px;
+}
+
+.reasoning-box strong {
+  color: #0972d3;
+}
+
+/* Tables */
+.aws-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.aws-table th {
+  background-color: #fafafa;
+  color: var(--aws-text-muted);
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--aws-border-subtle);
+}
+
+.aws-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--aws-border-subtle);
+  color: var(--aws-text-dark);
+}
+
+.aws-table tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Footer */
+.aws-footer {
+  background-color: var(--aws-squid-ink);
+  color: #aab7c4;
+  text-align: center;
+  padding: 24px;
+  font-size: 13px;
+  border-top: 3px solid var(--aws-orange);
+  margin-top: 40px;
+}
+
+.aws-footer strong {
+  color: var(--aws-orange);
+}
+
+/* Drag & Drop Box */
+.upload-dropzone {
+  border: 2px dashed var(--aws-blue);
+  border-radius: 8px;
+  background-color: #f8fafc;
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upload-dropzone:hover {
+  background-color: #f1f8fe;
+  border-color: var(--aws-orange);
+}
+
+.upload-dropzone p {
+  margin-top: 10px;
+  color: var(--aws-text-muted);
+  font-weight: 600;
+}
