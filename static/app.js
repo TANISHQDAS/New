@@ -16,6 +16,7 @@ function switchTab(tabId, el) {
 async function loadDataset(datasetId) {
   try {
     const response = await fetch(`/api/analysis/${datasetId}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const data = await response.json();
     currentAnalysisData = data;
     renderAnalysis(data);
@@ -27,7 +28,7 @@ async function loadDataset(datasetId) {
 function renderAnalysis(data) {
   // Update stats
   document.getElementById("statFactCount").innerText = data.facts_extracted_count || 0;
-  document.getElementById("statDocCount").innerText = data.dataset_id.includes("delhivery") ? "3 PDFs (Delhivery)" : (data.dataset_id.includes("macroeconomy") ? "3 PDFs (Macroeconomy)" : "Uploaded PDF");
+  document.getElementById("statDocCount").innerText = data.dataset_id.includes("delhivery") ? "3 PDFs (Delhivery)" : (data.dataset_id.includes("macroeconomy") ? "3 PDFs (Macroeconomy)" : `Uploaded PDF (${data.dataset_id.replace('upload-', '')})`);
 
   // Render 4 Cases Grid
   renderCases(data.cases);
@@ -191,6 +192,9 @@ async function uploadPDF(file) {
       method: "POST",
       body: formData
     });
+    if (!res.ok) {
+      throw new Error(`Server returned status code ${res.status}`);
+    }
     const data = await res.json();
     currentAnalysisData = data;
     renderAnalysis(data);
@@ -198,6 +202,6 @@ async function uploadPDF(file) {
     switchTab("showcase", document.querySelectorAll(".aws-tab")[0]);
   } catch (err) {
     console.error("Upload error:", err);
-    statusDiv.innerHTML = `<div style="color: var(--case2-red); font-weight: 700;">❌ Error processing PDF file.</div>`;
+    statusDiv.innerHTML = `<div style="color: var(--case2-red); font-weight: 700;">❌ Upload Error: ${err.message}. (Make sure the backend server is running on http://127.0.0.1:8000)</div>`;
   }
 }
