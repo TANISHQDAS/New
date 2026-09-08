@@ -19,8 +19,16 @@ const DATASET_INFO = {
 
 // Load sample dataset
 async function loadDataset(datasetId) {
+  const datasetInfo = document.getElementById("datasetInfo");
+  datasetInfo.innerText = `Loading ${DATASET_INFO[datasetId]?.name || datasetId}...`;
+  document.getElementById("casesGrid").innerHTML = "";
+  document.getElementById("factsTableBody").innerHTML = "";
+  document.getElementById("factCountText").innerText = "...";
+
   try {
-    const response = await fetch(`/api/analysis/${datasetId}`);
+    const response = await fetch(`/api/analysis/${datasetId}?t=${Date.now()}`, {
+      cache: "no-store"
+    });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || "Dataset could not be loaded");
     renderDatasetInfo(datasetId, data);
@@ -54,6 +62,7 @@ function renderAnalysis(data) {
 function renderCases(cases) {
   const grid = document.getElementById("casesGrid");
   grid.innerHTML = "";
+  const maxCardsPerCase = 24;
 
   const caseConfig = [
     { key: "Case 1: Corroborated Fact", class: "case1", icon: "✅", label: "Case 1: Matching Fact" },
@@ -63,7 +72,8 @@ function renderCases(cases) {
   ];
 
   caseConfig.forEach(cfg => {
-    const rels = cases[cfg.key] || [];
+    const allRels = cases[cfg.key] || [];
+    const rels = allRels.slice(0, maxCardsPerCase);
     rels.forEach(rel => {
       const card = document.createElement("div");
       card.className = `case-card ${cfg.class}`;
@@ -101,6 +111,13 @@ function renderCases(cases) {
       `;
       grid.appendChild(card);
     });
+
+    if (allRels.length > maxCardsPerCase) {
+      const note = document.createElement("p");
+      note.className = "result-text";
+      note.textContent = `Showing ${maxCardsPerCase} of ${allRels.length} ${cfg.label.toLowerCase()} entries.`;
+      grid.appendChild(note);
+    }
   });
 }
 
