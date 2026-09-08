@@ -23,6 +23,7 @@
         <label for="datasetSelect">Select Starter Dataset:</label>
         <select id="datasetSelect" onchange="loadDataset(this.value)">
           <option value="delhivery">Delhivery Filings</option>
+          <option value="india-macroeconomy">India Macroeconomy</option>
         </select>
       </div>
       <div>
@@ -32,6 +33,7 @@
     </div>
     
     <div id="uploadStatus"></div>
+    <div id="datasetInfo" class="dataset-info" aria-live="polite"></div>
 
     <!-- Section 1: 4 Cases -->
     <div class="section">

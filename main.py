@@ -1,6 +1,6 @@
 import os, re, tempfile, pypdf
 from pathlib import Path
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -126,11 +126,41 @@ def get_demo_data():
         "facts": [f1, f2, f3, f4, f5, f6]
     }
 
+def get_dataset_data(dataset_id):
+    if dataset_id == "delhivery":
+        return get_demo_data()
+    if dataset_id != "india-macroeconomy":
+        return None
+
+    dataset_dir = Path(__file__).parent / "starter-datasets" / dataset_id
+    if not dataset_dir.is_dir():
+        return None
+
+    facts = []
+    cases = {C1: [], C2: [], C3: [], C4: []}
+    for pdf_path in sorted(dataset_dir.glob("*.pdf")):
+        extracted = extract_pdf_data(str(pdf_path), pdf_path.name)
+        facts.extend(extracted["facts"])
+        for case_key, relations in extracted["cases"].items():
+            cases[case_key].extend(relations)
+
+    return {
+        "dataset_id": dataset_id,
+        "facts_extracted_count": len(facts),
+        "reconciled_cases_count": sum(len(relations) for relations in cases.values()),
+        "cases": cases,
+        "facts": facts,
+    }
+
 @app.get("/")
 def home(): return FileResponse(str(STATIC_DIR / "index.html"))
 
 @app.get("/api/analysis/{dataset_id}")
-def get_analysis(dataset_id: str): return get_demo_data()
+def get_analysis(dataset_id: str):
+    data = get_dataset_data(dataset_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Unknown dataset")
+    return data
 
 @app.post("/api/upload")
 def upload_pdf(file: UploadFile = File(...)):

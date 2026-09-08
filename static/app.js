@@ -4,15 +4,41 @@ document.addEventListener("DOMContentLoaded", () => {
   loadDataset("delhivery");
 });
 
+const DATASET_INFO = {
+  delhivery: {
+    name: "Delhivery Filings",
+    description: "Three company documents covering corporate, operational, and financial facts.",
+    path: "starter-datasets/delhivery/"
+  },
+  "india-macroeconomy": {
+    name: "India Macroeconomy",
+    description: "Three institutional reports covering overlapping facts about the Indian economy.",
+    path: "starter-datasets/india-macroeconomy/"
+  }
+};
+
 // Load sample dataset
 async function loadDataset(datasetId) {
   try {
     const response = await fetch(`/api/analysis/${datasetId}`);
     const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Dataset could not be loaded");
+    renderDatasetInfo(datasetId, data);
     renderAnalysis(data);
   } catch (err) {
     console.error("Error loading sample data:", err);
+    document.getElementById("datasetInfo").innerText = `Could not load ${datasetId}: ${err.message}`;
   }
+}
+
+function renderDatasetInfo(datasetId, data) {
+  const info = DATASET_INFO[datasetId] || { name: datasetId, description: "", path: "" };
+  document.getElementById("datasetInfo").innerHTML = `
+    <strong>${info.name}</strong>
+    <span>${info.description}</span>
+    <code>${info.path}</code>
+    <span>${data.facts_extracted_count || 0} facts loaded</span>
+  `;
 }
 
 // Display analysis results

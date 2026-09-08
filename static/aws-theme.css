@@ -85,6 +85,27 @@ select, input[type="text"] {
   background-color: #2980b9;
 }
 
+.dataset-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  background-color: #eef6fc;
+  border: 1px solid #c9e2f5;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  color: #34495e;
+  font-size: 13px;
+}
+
+.dataset-info code {
+  color: #2874a6;
+  background-color: #ffffff;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
 /* Section Box */
 .section {
   background-color: #ffffff;
