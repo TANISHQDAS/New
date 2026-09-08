@@ -24,7 +24,8 @@ app.add_middleware(
 
 BASE_DIR = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "static"
-UPLOADS_DIR = BASE_DIR / "uploads"
+# Vercel has a read-only filesystem except /tmp — use /tmp for uploads
+UPLOADS_DIR = Path("/tmp/uploads")
 UPLOADS_DIR.mkdir(exist_ok=True)
 
 # Mount static files
