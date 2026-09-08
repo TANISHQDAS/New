@@ -154,7 +154,7 @@ def home(): return FileResponse(str(STATIC_DIR / "index.html"))
 @app.get("/api/analysis/{dataset_id}")
 def get_analysis(dataset_id: str):
     import time
-    time.sleep(25)
+    time.sleep(30)
     data = get_dataset_data(dataset_id)
     if data is None:
         raise HTTPException(status_code=404, detail="Unknown dataset")
