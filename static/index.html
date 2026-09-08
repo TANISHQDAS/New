@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fact Knowledge Layer</title>
+  <title>PDF Fact Extractor & Checker</title>
   <link rel="stylesheet" href="/static/aws-theme.css">
 </head>
 <body>
 
   <!-- Header -->
   <header class="header">
-    <h1>Fact Knowledge Layer System</h1>
-    <p>Abhi Pandey (23BAI10909) | Superjoin Assignment</p>
+    <h1>Simple PDF Fact Extractor</h1>
+    <p>Superjoin Hiring Assignment | Abhi Pandey (23BAI10909)</p>
   </header>
 
   <!-- Main Container -->
@@ -20,60 +20,52 @@
     <!-- Controls -->
     <div class="control-box">
       <div>
-        <label for="datasetSelect">Dataset:</label>
+        <label for="datasetSelect">Select Demo Data:</label>
         <select id="datasetSelect" onchange="loadDataset(this.value)">
-          <option value="delhivery">Delhivery Filings</option>
-          <option value="india-macroeconomy">India Macroeconomy</option>
+          <option value="delhivery">Delhivery Sample PDF Data</option>
         </select>
       </div>
       <div>
-        <button class="btn" onclick="document.getElementById('pdfFileInput').click()">Upload PDF</button>
+        <button class="btn" onclick="document.getElementById('pdfFileInput').click()">Upload Any PDF File</button>
         <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;" onchange="uploadPDF(this.files[0])">
       </div>
     </div>
     
     <div id="uploadStatus"></div>
 
-    <!-- Section 1: Cases -->
+    <!-- Section 1: 4 Cases -->
     <div class="section">
-      <h2>1. Benchmark Cases</h2>
-      <div id="casesGrid">
-        <!-- Loaded by JS -->
-      </div>
+      <h2>1. Analysis Cases (4 Benchmark Cases)</h2>
+      <div id="casesGrid"></div>
     </div>
 
-    <!-- Section 2: Facts Table -->
+    <!-- Section 2: Extracted Facts -->
     <div class="section">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h2 style="margin: 0; border: none; padding: 0;">2. Extracted Facts (<span id="factCountText">0</span>)</h2>
-        <input type="text" id="factSearch" placeholder="Search facts..." onkeyup="filterFactsTable()" style="width: 200px;">
+        <h2 style="margin: 0; border: none; padding: 0;">2. All Extracted Facts (<span id="factCountText">0</span>)</h2>
+        <input type="text" id="factSearch" placeholder="Search facts..." onkeyup="filterFactsTable()" style="width: 220px;">
       </div>
       <table>
         <thead>
           <tr>
-            <th>Metric</th>
-            <th>Value</th>
-            <th>Timeframe</th>
-            <th>Document</th>
+            <th>Metric Name</th>
+            <th>Extracted Value</th>
+            <th>Year / Period</th>
+            <th>PDF File</th>
             <th>Page</th>
-            <th>Quote</th>
+            <th>Original Text Quote</th>
           </tr>
         </thead>
-        <tbody id="factsTableBody">
-          <!-- Loaded by JS -->
-        </tbody>
+        <tbody id="factsTableBody"></tbody>
       </table>
     </div>
 
   </main>
 
   <footer class="footer">
-    Fact Knowledge Layer System
+    PDF Fact Knowledge Layer — Simple & Basic Prototype
   </footer>
 
   <script src="/static/app.js"></script>
 </body>
 </html>
-
-
-
