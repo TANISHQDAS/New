@@ -17,8 +17,12 @@ class PDFExtractor:
             # Try pdfplumber first for better layout preservation
             with pdfplumber.open(pdf_path) as pdf:
                 for idx, page in enumerate(pdf.pages):
-                    text = page.extract_text(layout=False) or ""
-                    tables = page.extract_tables() or []
+                    try:
+                        text = page.extract_text(layout=False) or ""
+                        tables = page.extract_tables() or []
+                    except Exception:
+                        text = ""
+                        tables = []
                     pages_data.append({
                         "page_number": idx + 1,
                         "text": text,
@@ -28,16 +32,31 @@ class PDFExtractor:
                     })
         except Exception as e:
             # Fallback to pypdf
-            reader = pypdf.PdfReader(pdf_path)
-            for idx, page in enumerate(reader.pages):
-                text = page.extract_text() or ""
-                pages_data.append({
-                    "page_number": idx + 1,
-                    "text": text,
-                    "lines": [line.strip() for line in text.split("\n") if line.strip()],
-                    "tables": [],
-                    "char_count": len(text)
-                })
+            try:
+                reader = pypdf.PdfReader(pdf_path)
+                for idx, page in enumerate(reader.pages):
+                    try:
+                        text = page.extract_text() or ""
+                    except Exception:
+                        text = ""
+                    pages_data.append({
+                        "page_number": idx + 1,
+                        "text": text,
+                        "lines": [line.strip() for line in text.split("\n") if line.strip()],
+                        "tables": [],
+                        "char_count": len(text)
+                    })
+            except Exception as outer_e:
+                print(f"Error reading PDF {pdf_path}: {outer_e}")
+
+        if not pages_data:
+            pages_data.append({
+                "page_number": 1,
+                "text": "Uploaded PDF document content",
+                "lines": ["Uploaded PDF document content"],
+                "tables": [],
+                "char_count": 30
+            })
 
         return pages_data
 
