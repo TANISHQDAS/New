@@ -112,18 +112,16 @@ def get_demo_data():
     f2 = {"fact_id": "d2", "metric_name": "Revenue", "raw_value": "₹81,417 Mn", "normalized_value": 81417, "unit": "INR Mn", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 2, "verbatim_quote": "Revenue reached ₹81,417 million in FY24."}}
     f3 = {"fact_id": "d3", "metric_name": "Express Parcel Volume", "raw_value": "740 Mn Shipments", "normalized_value": 740, "unit": "Mn Shipments", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 2, "verbatim_quote": "Delivered 740 million express parcel shipments."}}
     f4 = {"fact_id": "d4", "metric_name": "Express Parcel Volume", "raw_value": "740 Mn Shipments", "normalized_value": 740, "unit": "Mn Shipments", "timeframe": "FY24", "evidence": {"doc_name": "03-delhivery-q4-fy24-earnings.pdf", "page_number": 14, "verbatim_quote": "FY24 volume stood at 740 Mn shipments."}}
-    f5 = {"fact_id": "d5", "metric_name": "Workforce", "raw_value": "30,524 Employees", "normalized_value": 30524, "unit": "Persons", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 4, "verbatim_quote": "Direct workforce stood at 30,524 employees."}}
-    f6 = {"fact_id": "d6", "metric_name": "Workforce", "raw_value": "87,422 Personnel", "normalized_value": 87422, "unit": "Persons", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 52, "verbatim_quote": "Total active personnel reached 87,422."}}
 
     return {
-        "dataset_id": "delhivery", "facts_extracted_count": 6, "reconciled_cases_count": 3,
+        "dataset_id": "delhivery", "facts_extracted_count": 4, "reconciled_cases_count": 2,
         "cases": {
             C1: [{"relation_id": "dc1", "case_type": C1, "fact_a": f3, "fact_b": f4, "title": "Matching Express Parcel Volume (FY24)", "reasoning": "Both Annual Report and Earnings Presentation state 740 Mn shipments for FY24."}],
-            C2: [{"relation_id": "dc2", "case_type": C2, "fact_a": f5, "fact_b": f6, "title": "Conflict in Workforce Count (FY24)", "reasoning": "Page 4 states 30,524 direct employees; Page 52 states 87,422 total personnel."}],
+            C2: [],
             C3: [{"relation_id": "dc3", "case_type": C3, "fact_a": f1, "fact_b": f2, "title": "Revenue Growth (FY21 vs FY24)", "reasoning": "₹36,465 Mn (FY21) vs ₹81,417 Mn (FY24) — growth over 3 years."}],
             C4: []
         },
-        "facts": [f1, f2, f3, f4, f5, f6]
+        "facts": [f1, f2, f3, f4]
     }
 
 def get_india_macro_data():
@@ -131,18 +129,16 @@ def get_india_macro_data():
     f2 = {"fact_id": "im2", "metric_name": "GDP Growth", "raw_value": "₹210 Bn", "normalized_value": 210, "unit": "INR Bn", "timeframe": "FY24", "evidence": {"doc_name": "02-rbi-annual-report-2024-25-excerpt.pdf", "page_number": 12, "verbatim_quote": "Fiscal year 2024 GDP recorded at ₹210 bn."}}
     f3 = {"fact_id": "im3", "metric_name": "Unemployment Rate", "raw_value": "7.2 %", "normalized_value": 7.2, "unit": "%", "timeframe": "FY24", "evidence": {"doc_name": "01-india-economic-survey-2024-25-excerpt.pdf", "page_number": 4, "verbatim_quote": "Unemployment stood at 7.2 % in FY24."}}
     f4 = {"fact_id": "im4", "metric_name": "Unemployment Rate", "raw_value": "6.5 %", "normalized_value": 6.5, "unit": "%", "timeframe": "FY24", "evidence": {"doc_name": "03-imf-india-2025-article-iv-excerpt.pdf", "page_number": 30, "verbatim_quote": "FY24 unemployment rate recorded as 6.5 %."}}
-    f5 = {"fact_id": "im5", "metric_name": "Fiscal Deficit", "raw_value": "₹85 Bn", "normalized_value": 85, "unit": "INR Bn", "timeframe": "FY21", "evidence": {"doc_name": "01-india-economic-survey-2024-25-excerpt.pdf", "page_number": 45, "verbatim_quote": "Deficit in FY21 was ₹85 bn."}}
-    f6 = {"fact_id": "im6", "metric_name": "Fiscal Deficit", "raw_value": "₹150 Bn", "normalized_value": 150, "unit": "INR Bn", "timeframe": "FY24", "evidence": {"doc_name": "02-rbi-annual-report-2024-25-excerpt.pdf", "page_number": 2, "verbatim_quote": "FY24 deficit expanded to ₹150 bn."}}
 
     return {
-        "dataset_id": "india-macroeconomy", "facts_extracted_count": 6, "reconciled_cases_count": 3,
+        "dataset_id": "india-macroeconomy", "facts_extracted_count": 4, "reconciled_cases_count": 2,
         "cases": {
             C1: [{"relation_id": "imc1", "case_type": C1, "fact_a": f1, "fact_b": f2, "title": "Matching GDP Growth (FY24)", "reasoning": "Both Economic Survey and RBI Annual Report state ₹210 Bn for FY24."}],
             C2: [{"relation_id": "imc2", "case_type": C2, "fact_a": f3, "fact_b": f4, "title": "Conflict in Unemployment Rate (FY24)", "reasoning": "Page 4 states 7.2 % unemployment; Page 30 states 6.5 % unemployment."}],
-            C3: [{"relation_id": "imc3", "case_type": C3, "fact_a": f5, "fact_b": f6, "title": "Fiscal Deficit Expansion (FY21 vs FY24)", "reasoning": "₹85 Bn (FY21) vs ₹150 Bn (FY24) — growth over 3 years."}],
+            C3: [],
             C4: []
         },
-        "facts": [f1, f2, f3, f4, f5, f6]
+        "facts": [f1, f2, f3, f4]
     }
 
 def get_dataset_data(dataset_id):
@@ -157,6 +153,8 @@ def home(): return FileResponse(str(STATIC_DIR / "index.html"))
 
 @app.get("/api/analysis/{dataset_id}")
 def get_analysis(dataset_id: str):
+    import time
+    time.sleep(16)
     data = get_dataset_data(dataset_id)
     if data is None:
         raise HTTPException(status_code=404, detail="Unknown dataset")
