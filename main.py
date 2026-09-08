@@ -195,7 +195,28 @@ def extract_pdf_data(pdf_path, filename):
         "facts": facts
     }
 
-def get_demo_data():
+def get_demo_data(dataset_id="delhivery"):
+    if dataset_id == "india-macroeconomy":
+        f1 = {"fact_id": "m1", "metric_name": "Real GDP Growth", "raw_value": "8.2%", "normalized_value": 8.2, "unit": "%", "timeframe": "FY24", "evidence": {"doc_name": "01-india-economic-survey-2024-25-excerpt.pdf", "page_number": 3, "verbatim_quote": "Real GDP grew by 8.2 percent in FY24."}}
+        f2 = {"fact_id": "m2", "metric_name": "Real GDP Growth", "raw_value": "7.0%", "normalized_value": 7.0, "unit": "%", "timeframe": "FY25 Projection", "evidence": {"doc_name": "03-imf-india-2025-article-iv-excerpt.pdf", "page_number": 12, "verbatim_quote": "Real GDP growth is projected at 7.0 percent for FY25."}}
+        f3 = {"fact_id": "m3", "metric_name": "CPI Inflation", "raw_value": "5.4%", "normalized_value": 5.4, "unit": "%", "timeframe": "FY24", "evidence": {"doc_name": "02-rbi-annual-report-2024-25-excerpt.pdf", "page_number": 15, "verbatim_quote": "Headline CPI inflation averaged 5.4 percent in FY24."}}
+        f4 = {"fact_id": "m4", "metric_name": "CPI Inflation", "raw_value": "5.4%", "normalized_value": 5.4, "unit": "%", "timeframe": "FY24", "evidence": {"doc_name": "01-india-economic-survey-2024-25-excerpt.pdf", "page_number": 8, "verbatim_quote": "CPI inflation rate stood at 5.4% in FY24."}}
+        f5 = {"fact_id": "m5", "metric_name": "Forex Reserves", "raw_value": "$645 Billion", "normalized_value": 645, "unit": "USD Bn", "timeframe": "March 2024", "evidence": {"doc_name": "02-rbi-annual-report-2024-25-excerpt.pdf", "page_number": 28, "verbatim_quote": "Foreign exchange reserves reached $645 billion."}}
+
+        return {
+            "dataset_id": "india-macroeconomy",
+            "facts_extracted_count": 5,
+            "reconciled_cases_count": 2,
+            "cases": {
+                CASE1: [{"relation_id": "mc1", "case_type": CASE1, "fact_a": f3, "fact_b": f4, "title": "Matching CPI Inflation Rate (FY24)", "reasoning": "Both Economic Survey and RBI Annual Report state 5.4% CPI inflation for FY24."}],
+                CASE2: [],
+                CASE3: [{"relation_id": "mc3", "case_type": CASE3, "fact_a": f1, "fact_b": f2, "title": "Real GDP Growth: FY24 vs FY25 Projection", "reasoning": "8.2% (FY24 actual) vs 7.0% (FY25 projection) — difference due to growth projection."}],
+                CASE4: []
+            },
+            "facts": [f1, f2, f3, f4, f5]
+        }
+
+    # Default to Delhivery dataset
     f1 = {"fact_id": "d1", "metric_name": "Revenue", "raw_value": "₹36,465 Mn", "normalized_value": 36465, "unit": "INR Mn", "timeframe": "FY21", "evidence": {"doc_name": "01-delhivery-prospectus-2022.pdf", "page_number": 45, "verbatim_quote": "Revenue for Fiscal 2021 was ₹36,465 million."}}
     f2 = {"fact_id": "d2", "metric_name": "Revenue", "raw_value": "₹81,417 Mn", "normalized_value": 81417, "unit": "INR Mn", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 2, "verbatim_quote": "Revenue reached ₹81,417 million in FY24."}}
     f3 = {"fact_id": "d3", "metric_name": "Express Parcel Volume", "raw_value": "740 Mn Shipments", "normalized_value": 740, "unit": "Mn Shipments", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 2, "verbatim_quote": "Delivered 740 million express parcel shipments."}}
@@ -223,7 +244,8 @@ def home():
 
 @app.get("/api/analysis/{dataset_id}")
 def get_analysis(dataset_id: str):
-    return get_demo_data()
+    return get_demo_data(dataset_id)
+
 
 @app.post("/api/upload")
 def upload_pdf(file: UploadFile = File(...)):
