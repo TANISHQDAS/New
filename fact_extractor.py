@@ -4,51 +4,77 @@ from typing import List, Dict, Any
 from models import Fact, SourceEvidence
 
 class FactExtractor:
-    """Extracts numerical facts from any financial/business PDF using broad regex patterns."""
+    """Extracts numerical facts from financial/business PDFs."""
 
-    # Broad patterns that match common financial metrics in any PDF
+    # Each pattern: named metric, regex that captures (value, optional_unit)
+    # Patterns require the value to come AFTER a currency or clear numeric context
+    # to avoid matching bare year numbers like "FY24"
     METRIC_PATTERNS = [
         {
             "name": "Revenue",
-            "regex": r"(?:revenue|sales|turnover|income from operations|total income)[^\n]{0,40}?[₹\$]?\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh|lakhs|b|k)?",
-            "unit_default": "INR",
+            "regex": r"(?:revenue from operations|total revenue|sales revenue|net revenue|revenue)[^\n]{0,60}?(?:rs\.?|inr|usd|\$|rs)\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh|lakhs)?",
+            "unit_default": "INR Cr",
             "tags": ["financial", "revenue"]
         },
         {
-            "name": "Net Profit / Loss",
-            "regex": r"(?:net profit|net loss|profit after tax|pat|loss after tax)[^\n]{0,40}?[₹\$]?\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh|lakhs)?",
-            "unit_default": "INR",
+            "name": "Net Profit",
+            "regex": r"(?:net profit|profit after tax|pat|net income)[^\n]{0,60}?(?:rs\.?|inr|\$)\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh|lakhs)?",
+            "unit_default": "INR Cr",
             "tags": ["financial", "profit"]
         },
         {
             "name": "EBITDA",
-            "regex": r"(?:ebitda|operating profit|operating income)[^\n]{0,40}?[₹\$]?\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh|lakhs)?",
-            "unit_default": "INR",
+            "regex": r"(?:ebitda|operating profit)[^\n]{0,60}?(?:rs\.?|inr|\$)\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh|lakhs)?",
+            "unit_default": "INR Cr",
             "tags": ["financial", "ebitda"]
         },
         {
             "name": "Total Assets",
-            "regex": r"(?:total assets|total asset)[^\n]{0,40}?[₹\$]?\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh|lakhs)?",
-            "unit_default": "INR",
+            "regex": r"(?:total assets?)[^\n]{0,60}?(?:rs\.?|inr|\$)\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh|lakhs)?",
+            "unit_default": "INR Cr",
             "tags": ["financial", "assets"]
         },
         {
             "name": "Market Capitalization",
-            "regex": r"(?:market cap|market capitalisation|market capitalization)[^\n]{0,40}?[₹\$]?\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh)?",
-            "unit_default": "INR",
+            "regex": r"(?:market cap(?:ital(?:isation|ization)?)?)[^\n]{0,60}?(?:rs\.?|inr|\$)\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh)?",
+            "unit_default": "INR Cr",
             "tags": ["financial", "market_cap"]
         },
         {
             "name": "Earnings Per Share",
-            "regex": r"(?:eps|earnings per share|basic eps|diluted eps)[^\n]{0,40}?[₹\$]?\s*([\d,]+\.?\d*)",
+            "regex": r"(?:eps|earnings per share|basic eps|diluted eps)[^\n]{0,60}?(?:rs\.?|inr|\$)\s*([\d,]+\.?\d*)",
             "unit_default": "INR per Share",
             "tags": ["financial", "eps"]
         },
         {
+            "name": "Debt / Borrowings",
+            "regex": r"(?:total debt|borrowings|long.term debt|short.term debt|outstanding debt)[^\n]{0,60}?(?:rs\.?|inr|\$)\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh)?",
+            "unit_default": "INR Cr",
+            "tags": ["financial", "debt"]
+        },
+        {
+            "name": "Return on Equity",
+            "regex": r"(?:roe|return on equity)\s+(?:for\s+\w+\s+)?(?:was|is|stood at|of)?\s*([\d\.]+)\s*(?:%|percent|per cent)",
+            "unit_default": "%",
+            "tags": ["financial", "roe"]
+        },
+        {
             "name": "Workforce / Headcount",
-            "regex": r"(?:employees|workforce|headcount|staff|personnel|team members)[^\n]{0,40}?([\d,]+)\s*(?:employees|persons|people|members|staff)?",
+            "regex": r"(?:total employees|full-time employees|workforce|headcount|total personnel|contractual staff)[^\n]{0,40}?:\s*([\d,]+)\s*(?:employees|persons|people|members|staff)?",
             "unit_default": "Persons",
             "tags": ["hr", "workforce"]
+        },
+        {
+            "name": "Shipment / Volume",
+            "regex": r"(?:total shipments|shipments delivered|parcels delivered)[^\n]{0,30}?:\s*([\d,]+\.?\d*)\s*(mn|million|cr|crore|lakh|billion)?",
+            "unit_default": "Units",
+            "tags": ["operational", "volume"]
+        },
+        {
+            "name": "Interest Rate",
+            "regex": r"(?:interest rate|repo rate|lending rate|borrowing rate)[^\n]{0,40}?:\s*([\d\.]+)\s*(?:%|percent|per cent)",
+            "unit_default": "%",
+            "tags": ["financial", "interest"]
         },
         {
             "name": "GDP Growth Rate",
@@ -58,50 +84,31 @@ class FactExtractor:
         },
         {
             "name": "Inflation Rate",
-            "regex": r"(?:inflation|cpi|wpi|price rise)[^\n]{0,30}?([\d\.]+)\s*(?:%|percent|per cent)",
+            "regex": r"(?:cpi inflation|wpi inflation|headline inflation|retail inflation)[^\n]{0,30}?([\d\.]+)\s*(?:%|percent|per cent)",
             "unit_default": "%",
             "tags": ["macroeconomy", "inflation"]
         },
         {
-            "name": "Interest Rate",
-            "regex": r"(?:interest rate|repo rate|lending rate|borrowing rate|yield)[^\n]{0,30}?([\d\.]+)\s*(?:%|percent|per cent)",
-            "unit_default": "%",
-            "tags": ["financial", "interest"]
-        },
-        {
-            "name": "Debt / Borrowings",
-            "regex": r"(?:total debt|borrowings|long.term debt|short.term debt|outstanding debt)[^\n]{0,40}?[₹\$]?\s*([\d,]+\.?\d*)\s*(cr|crore|crores|mn|million|billion|lakh)?",
-            "unit_default": "INR",
-            "tags": ["financial", "debt"]
-        },
-        {
-            "name": "Return on Equity",
-            "regex": r"(?:roe|return on equity)[^\n]{0,30}?([\d\.]+)\s*(?:%|percent|per cent)",
-            "unit_default": "%",
-            "tags": ["financial", "roe"]
-        },
-        {
-            "name": "Shipment / Volume",
-            "regex": r"(?:shipments?|parcels?|orders?|deliveries|volume)[^\n]{0,30}?([\d,]+\.?\d*)\s*(mn|million|cr|crore|lakh|billion|k)?",
-            "unit_default": "Units",
-            "tags": ["operational", "volume"]
+            "name": "Foreign Exchange Reserves",
+            "regex": r"(?:forex reserves|foreign exchange reserves|gross international reserves)[^\n]{0,30}?(?:usd|us\$|\$)?\s*([\d,]+\.?\d*)\s*(billion|b|mn|million)?",
+            "unit_default": "USD Billion",
+            "tags": ["macroeconomy", "forex"]
         }
     ]
 
-    # Period detection patterns
     PERIOD_PATTERNS = [
-        (r"\bfy\s?25\b|2024[-–]25\b|fiscal 2025", "FY25"),
-        (r"\bfy\s?24\b|2023[-–]24\b|fiscal 2024|fy2024", "FY24"),
-        (r"\bfy\s?23\b|2022[-–]23\b|fiscal 2023|fy2023", "FY23"),
-        (r"\bfy\s?22\b|2021[-–]22\b|fiscal 2022|fy2022", "FY22"),
-        (r"\bfy\s?21\b|2020[-–]21\b|fiscal 2021|fy2021", "FY21"),
-        (r"\bq4\b.*\bfy\s?24\b|\bfy\s?24\b.*\bq4\b|q4 fy24|q4fy24", "Q4 FY24"),
-        (r"\bq3\b.*\bfy\s?24\b|\bfy\s?24\b.*\bq3\b", "Q3 FY24"),
-        (r"\bq2\b.*\bfy\s?24\b|\bfy\s?24\b.*\bq2\b", "Q2 FY24"),
-        (r"\bq1\b.*\bfy\s?24\b|\bfy\s?24\b.*\bq1\b", "Q1 FY24"),
-        (r"\b2024\b", "2024"),
-        (r"\b2023\b", "2023"),
-        (r"\b2022\b", "2022"),
+        (r"\bq4\s*fy\s*25\b|\bq4\s*2024[-–]25\b", "Q4 FY25"),
+        (r"\bq4\s*fy\s*24\b|\bq4\s*2023[-–]24\b|q4fy24", "Q4 FY24"),
+        (r"\bq3\s*fy\s*24\b|\bq3\s*2023[-–]24\b", "Q3 FY24"),
+        (r"\bq2\s*fy\s*24\b|\bq2\s*2023[-–]24\b", "Q2 FY24"),
+        (r"\bq1\s*fy\s*24\b|\bq1\s*2023[-–]24\b", "Q1 FY24"),
+        (r"\bfy\s*25\b|2024[-–]25\b|fiscal\s+2025", "FY25"),
+        (r"\bfy\s*24\b|2023[-–]24\b|fiscal\s+2024|fy2024", "FY24"),
+        (r"\bfy\s*23\b|2022[-–]23\b|fiscal\s+2023|fy2023", "FY23"),
+        (r"\bfy\s*22\b|2021[-–]22\b|fiscal\s+2022|fy2022", "FY22"),
+        (r"\bfy\s*21\b|2020[-–]21\b|fiscal\s+2021|fy2021", "FY21"),
+        (r"\bmarch\s+2024\b|\bmar[-–]24\b", "March 2024"),
+        (r"\bmarch\s+2023\b|\bmar[-–]23\b", "March 2023"),
     ]
 
     @classmethod
@@ -117,23 +124,39 @@ class FactExtractor:
         clean = val_str.replace(",", "").strip()
         try:
             num = float(clean)
-            mult = (multiplier_unit or "").lower()
+            mult = (multiplier_unit or "").lower().strip()
             if "lakh" in mult:
-                return num / 10.0  # lakhs to crores
+                return round(num / 100.0, 4)   # lakhs -> crores
             elif "cr" in mult or "crore" in mult:
                 return num
             elif "mn" in mult or "million" in mult:
-                return num / 10.0  # millions to crores approx
-            elif "billion" in mult or "b" == mult:
-                return num * 100.0
+                return round(num / 10.0, 4)    # millions -> crores
+            elif "billion" in mult or mult == "b":
+                return round(num * 100.0, 4)   # billions -> crores
             return num
         except ValueError:
             return 0.0
 
     @classmethod
+    def guess_entity(cls, doc_name: str) -> str:
+        name_lower = doc_name.lower()
+        if "delhivery" in name_lower:
+            return "Delhivery Limited"
+        if "rbi" in name_lower or "reserve bank" in name_lower:
+            return "Reserve Bank of India"
+        if "imf" in name_lower:
+            return "IMF"
+        if "economic survey" in name_lower or "ministry" in name_lower:
+            return "Indian Economy"
+        # Use first 3 words from filename as entity name
+        words = re.findall(r"[a-zA-Z]+", doc_name)
+        return " ".join(w.capitalize() for w in words[:3]) if words else doc_name
+
+    @classmethod
     def extract_facts_from_pages(cls, doc_name: str, pages_data: List[Dict[str, Any]]) -> List[Fact]:
         facts = []
-        seen = set()  # deduplicate by (metric, value, period)
+        seen = set()
+        entity = cls.guess_entity(doc_name)
 
         for page in pages_data:
             page_num = page["page_number"]
@@ -148,35 +171,22 @@ class FactExtractor:
                         mult = m.group(2) if len(m.groups()) >= 2 and m.group(2) else ""
                         norm_val = cls.parse_number(raw_val, mult)
 
+                        # Skip obviously wrong small numbers (year fragments like "23", "24")
+                        if norm_val < 1.0 and pat["unit_default"] not in ("%", "INR per Share"):
+                            continue
                         if norm_val == 0.0:
-                            continue  # skip zero/unparseable values
+                            continue
 
                         period = cls.detect_period(line)
 
-                        # Build readable raw value string
-                        raw_value_str = raw_val
+                        raw_value_str = raw_val.replace(",", "")
                         if mult:
                             raw_value_str = f"{raw_val} {mult.capitalize()}"
 
-                        dedup_key = (pat["name"], raw_val, period)
+                        dedup_key = (pat["name"], raw_value_str.strip(), period)
                         if dedup_key in seen:
                             continue
                         seen.add(dedup_key)
-
-                        # Guess entity from doc name or context
-                        entity = "Unknown Entity"
-                        if "delhivery" in doc_name.lower():
-                            entity = "Delhivery Limited"
-                        elif any(w in doc_name.lower() for w in ["rbi", "reserve bank"]):
-                            entity = "Reserve Bank of India"
-                        elif any(w in doc_name.lower() for w in ["imf", "international monetary"]):
-                            entity = "IMF"
-                        elif any(w in doc_name.lower() for w in ["economic survey", "ministry"]):
-                            entity = "Indian Economy"
-                        else:
-                            # Try to guess from doc name words
-                            words = re.findall(r"[a-zA-Z]+", doc_name)
-                            entity = " ".join(w.capitalize() for w in words[:3]) if words else doc_name
 
                         evidence = SourceEvidence(
                             doc_id=doc_name.lower().replace(" ", "-"),
@@ -191,7 +201,7 @@ class FactExtractor:
                             fact_id=f"fact-{uuid.uuid4().hex[:8]}",
                             entity=entity,
                             metric_name=pat["name"],
-                            raw_value=raw_value_str,
+                            raw_value=raw_value_str.strip(),
                             normalized_value=norm_val,
                             unit=pat["unit_default"],
                             timeframe=period,
