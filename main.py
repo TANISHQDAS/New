@@ -1,177 +1,233 @@
-import re, shutil, tempfile, pypdf
+import os
+import re
+import tempfile
+import pypdf
 from pathlib import Path
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
+# Create FastAPI app
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-STATIC = Path(__file__).parent / "static"
-UPLOADS = Path(tempfile.gettempdir()) / "uploads"
-UPLOADS.mkdir(parents=True, exist_ok=True)
-app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
+# Setup paths
+STATIC_DIR = Path(__file__).parent / "static"
+UPLOAD_DIR = Path(tempfile.gettempdir()) / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-C_CORR = "Case 1: Corroborated Fact"
-C_GEN  = "Case 2: Genuine Contradiction"
-C_REC  = "Case 3: Apparent Contradiction (Reconciled by Context)"
-C_FAIL = "Case 4: Extraction/Reasoning Failure & Mitigation"
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# Broad extraction patterns covering major & minor numerical facts across any PDF
-PATTERNS = [
-    ("Revenue / Income", r"(?:revenue|sales|income|turnover|earnings)[^\n]{0,50}?(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion|lakh)?", "Currency"),
-    ("Profit / PAT", r"(?:net profit|pat|profit|margin)[^\n]{0,50}?(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion|lakh)?", "Currency"),
-    ("EBITDA / Operating Profit", r"(?:ebitda|operating profit)[^\n]{0,50}?(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million)?", "Currency"),
-    ("Workforce / Employees", r"(?:employees|workforce|personnel|staff|headcount)[^\n]{0,40}?:\s*([\d,]+)", "Persons"),
-    ("Volume / Shipments", r"(?:shipments|parcels|units|volume|quantity)[^\n]{0,30}?:\s*([\d,]+\.?\d*)\s*(mn|million|cr|lakh)?", "Units"),
-    ("Total Assets / Capital", r"(?:total assets|assets|capital|investment)[^\n]{0,50}?(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion)?", "Currency"),
-    ("Debt / Liabilities", r"(?:debt|borrowings|liabilities)[^\n]{0,50}?(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion)?", "Currency"),
-    ("Rate / Percentage", r"(?:rate|percentage|growth|inflation|gdp|roi|roe|interest|share)[^\n]{0,40}?:\s*([\d\.]+)\s*(?:%|percent)", "%"),
-    ("General Metric / Value", r"([a-zA-Z\s]{3,25})\s*[:=]\s*(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion|%|units|kg|m)?", "Value")
+# Case Categories
+CASE1 = "Case 1: Corroborated Fact"
+CASE2 = "Case 2: Genuine Contradiction"
+CASE3 = "Case 3: Apparent Contradiction (Reconciled by Context)"
+CASE4 = "Case 4: Extraction/Reasoning Failure & Mitigation"
+
+# Metric search patterns
+METRIC_PATTERNS = [
+    ("Revenue", r"(?:revenue|sales|income)[^\n]{0,50}?(?:rs\.?|inr|\$)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion)?"),
+    ("Profit", r"(?:net profit|pat|profit)[^\n]{0,50}?(?:rs\.?|inr|\$)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million)?"),
+    ("EBITDA", r"(?:ebitda|operating profit)[^\n]{0,50}?(?:rs\.?|inr|\$)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million)?"),
+    ("Workforce", r"(?:employees|workforce|staff|headcount)[^\n]{0,30}?:\s*([\d,]+)"),
+    ("Shipments", r"(?:shipments|parcels|units|volume)[^\n]{0,30}?:\s*([\d,]+\.?\d*)\s*(mn|million|cr)?"),
+    ("General Metric", r"([a-zA-Z\s]{3,20})\s*[:=]\s*(?:rs\.?|inr|\$)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|%)?")
 ]
 
-PERIOD_PATTERNS = [
-    (r"q[1-4]\s*fy\s*\d{2,4}", lambda m: m.group(0).upper()),
-    (r"fy\s*\d{2,4}|20\d{2}[-–]\d{2,4}", lambda m: m.group(0).upper()),
-    (r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+20\d{2}", lambda m: m.group(0).title()),
-    (r"20\d{2}", lambda m: m.group(0))
-]
-
-def parse_num(val, mult=""):
+def parse_amount(val_str, unit_str=""):
     try:
-        n = float(str(val).replace(",", "").strip())
-        m = (mult or "").lower().strip()
-        if "lakh" in m: return round(n / 100, 4)
-        if "mn" in m or "million" in m: return round(n / 10, 4)
-        if "billion" in m or m == "b": return round(n * 100, 4)
-        return n
+        val = float(val_str.replace(",", "").strip())
+        unit = (unit_str or "").lower().strip()
+        if "mn" in unit or "million" in unit:
+            return round(val / 10, 4)
+        if "billion" in unit:
+            return round(val * 100, 4)
+        return val
     except:
         return 0.0
 
-def detect_period(text):
-    for pat, formatter in PERIOD_PATTERNS:
-        m = re.search(pat, text, re.IGNORECASE)
-        if m: return formatter(m)
+def find_year(text):
+    match = re.search(r"\b(FY\s*\d{2,4}|20\d{2}|Q[1-4]\s*FY\d{2})\b", text, re.IGNORECASE)
+    if match:
+        return match.group(0).upper()
     return "N/A"
 
-def process_pdf(pdf_path, filename):
+def extract_pdf_data(pdf_path, filename):
+    facts = []
+    seen_keys = set()
+
     try:
         reader = pypdf.PdfReader(pdf_path)
-    except Exception as e:
-        return {"dataset_id": f"upload-{filename}", "facts_extracted_count": 0, "reconciled_cases_count": 1,
-                "cases": {C_CORR:[], C_GEN:[], C_REC:[], C_FAIL:[{"relation_id":"r-fail","case_type":C_FAIL,"fact_a":None,"title":"Unreadable PDF","reasoning":str(e)}]}, "facts":[]}
+        for page_num, page in enumerate(reader.pages, start=1):
+            text = page.extract_text() or ""
+            for line in text.split("\n"):
+                line = line.strip()
+                if not line or len(line) < 4:
+                    continue
 
-    facts, seen = [], set()
+                for metric_name, pattern in METRIC_PATTERNS:
+                    match = re.search(pattern, line, re.IGNORECASE)
+                    if match:
+                        raw_val = match.group(1)
+                        unit = match.group(2) if len(match.groups()) >= 2 and match.group(2) else ""
+                        if metric_name == "General Metric":
+                            metric_name = f"Metric: {match.group(1).strip().title()}"
+                            raw_val = match.group(2)
+                            unit = match.group(3) if len(match.groups()) >= 3 and match.group(3) else ""
 
-    for idx, page in enumerate(reader.pages):
-        text = page.extract_text() or ""
-        for line in text.split("\n"):
-            line_str = line.strip()
-            if not line_str or len(line_str) < 5: continue
-            ll = line_str.lower()
+                        num_val = parse_amount(raw_val, unit)
+                        if num_val <= 0:
+                            continue
 
-            for name, reg, unit in PATTERNS:
-                m = re.search(reg, ll)
-                if m:
-                    if name == "General Metric / Value":
-                        label_raw, raw_val = m.group(1).strip().title(), m.group(2)
-                        mult = m.group(3) if len(m.groups()) >= 3 and m.group(3) else ""
-                        metric_name = f"Metric: {label_raw}"
-                    else:
-                        raw_val = m.group(1)
-                        mult = m.group(2) if len(m.groups()) >= 2 and m.group(2) else ""
-                        metric_name = name
+                        period = find_year(line)
+                        display_val = f"{raw_val} {unit}".strip() if unit else raw_val
+                        unique_key = (metric_name, display_val, period)
 
-                    norm = parse_num(raw_val, mult)
-                    if norm <= 0: continue
-                    period = detect_period(line_str)
-                    raw_str = f"{raw_val} {mult}".strip() if mult else raw_val
-                    key = (metric_name, raw_str, period)
+                        if unique_key in seen_keys:
+                            continue
+                        seen_keys.add(unique_key)
 
-                    if key in seen: continue
-                    seen.add(key)
+                        facts.append({
+                            "fact_id": f"fact-{len(facts) + 1}",
+                            "metric_name": metric_name,
+                            "raw_value": display_val,
+                            "normalized_value": num_val,
+                            "unit": unit or "Value",
+                            "timeframe": period,
+                            "evidence": {
+                                "doc_name": filename,
+                                "page_number": page_num,
+                                "verbatim_quote": line[:180]
+                            }
+                        })
+    except Exception as err:
+        print("Error reading PDF:", err)
 
-                    facts.append({
-                        "fact_id": f"f-{len(facts)+1}",
-                        "metric_name": metric_name,
-                        "raw_value": raw_str,
-                        "normalized_value": norm,
-                        "unit": unit,
-                        "timeframe": period,
-                        "evidence": {"doc_name": filename, "page_number": idx + 1, "verbatim_quote": line_str[:200]}
+    # Classify cases
+    cases = {CASE1: [], CASE2: [], CASE3: [], CASE4: []}
+    metric_groups = {}
+    for f in facts:
+        metric_groups.setdefault(f["metric_name"], []).append(f)
+
+    case_count = 1
+    for name, fact_list in metric_groups.items():
+        if len(fact_list) < 2:
+            continue
+
+        for i in range(len(fact_list)):
+            for j in range(i + 1, len(fact_list)):
+                f1 = fact_list[i]
+                f2 = fact_list[j]
+
+                # Skip if on same page
+                if f1["evidence"]["page_number"] == f2["evidence"]["page_number"]:
+                    continue
+
+                page1 = f"Page {f1['evidence']['page_number']}"
+                page2 = f"Page {f2['evidence']['page_number']}"
+                same_time = (f1["timeframe"] == f2["timeframe"]) and f1["timeframe"] != "N/A"
+                same_num = abs(f1["normalized_value"] - f2["normalized_value"]) < 0.05 * max(f1["normalized_value"], f2["normalized_value"], 1.0)
+
+                if same_time and same_num:
+                    cases[CASE1].append({
+                        "relation_id": f"rel-{case_count}",
+                        "case_type": CASE1,
+                        "fact_a": f1,
+                        "fact_b": f2,
+                        "title": f"Matching {name} ({f1['timeframe']})",
+                        "reasoning": f"Both {page1} and {page2} report matching {name} of {f1['raw_value']}."
                     })
-
-    cases = {C_CORR: [], C_GEN: [], C_REC: [], C_FAIL: []}
-    grouped = {}
-    for f in facts: grouped.setdefault(f["metric_name"], []).append(f)
-
-    rel_id = 1
-    # Check metric pairs for cases
-    for metric, lst in grouped.items():
-        if len(lst) < 2: continue
-        for i in range(len(lst)):
-            for j in range(i + 1, len(lst)):
-                a, b = lst[i], lst[j]
-                if a["evidence"]["page_number"] == b["evidence"]["page_number"]: continue
-                src_a, src_b = f"Page {a['evidence']['page_number']}", f"Page {b['evidence']['page_number']}"
-                same_period = (a["timeframe"] == b["timeframe"]) and a["timeframe"] != "N/A"
-                same_val = abs(a["normalized_value"] - b["normalized_value"]) < 0.05 * max(a["normalized_value"], b["normalized_value"], 1.0)
-
-                if same_period and same_val:
-                    cases[C_CORR].append({"relation_id": f"r-{rel_id}", "case_type": C_CORR, "fact_a": a, "fact_b": b, "title": f"Matching {metric} ({a['timeframe']})", "reasoning": f"{metric} = {a['raw_value']} matched in {src_a} and {src_b}."})
-                elif same_period and not same_val:
-                    cases[C_GEN].append({"relation_id": f"r-{rel_id}", "case_type": C_GEN, "fact_a": a, "fact_b": b, "title": f"Conflict in {metric} ({a['timeframe']})", "reasoning": f"{metric} for {a['timeframe']}: {a['raw_value']} ({src_a}) vs {b['raw_value']} ({src_b})."})
+                elif same_time and not same_num:
+                    cases[CASE2].append({
+                        "relation_id": f"rel-{case_count}",
+                        "case_type": CASE2,
+                        "fact_a": f1,
+                        "fact_b": f2,
+                        "title": f"Conflicting {name} ({f1['timeframe']})",
+                        "reasoning": f"Conflict for {name} in {f1['timeframe']}: {f1['raw_value']} ({page1}) vs {f2['raw_value']} ({page2})."
+                    })
                 else:
-                    cases[C_REC].append({"relation_id": f"r-{rel_id}", "case_type": C_REC, "fact_a": a, "fact_b": b, "title": f"{metric}: {a['timeframe']} vs {b['timeframe']}", "reasoning": f"{a['raw_value']} ({src_a}, {a['timeframe']}) vs {b['raw_value']} ({src_b}, {b['timeframe']}) — reconciled by context."})
-                rel_id += 1
+                    cases[CASE3].append({
+                        "relation_id": f"rel-{case_count}",
+                        "case_type": CASE3,
+                        "fact_a": f1,
+                        "fact_b": f2,
+                        "title": f"{name} Across Different Periods",
+                        "reasoning": f"{f1['raw_value']} ({page1}, {f1['timeframe']}) vs {f2['raw_value']} ({page2}, {f2['timeframe']}) — different time periods."
+                    })
+                case_count += 1
 
-    # Cross-metric context reconciliation if no direct metric duplicates
+    # Fallback case 3 if no pairs found
     if len(facts) >= 2 and sum(len(v) for v in cases.values()) == 0:
-        a, b = facts[0], facts[1]
-        cases[C_REC].append({
-            "relation_id": "r-1", "case_type": C_REC, "fact_a": a, "fact_b": b,
-            "title": f"Context Comparison: {a['metric_name']} vs {b['metric_name']}",
-            "reasoning": f"{a['metric_name']} ({a['raw_value']}, Page {a['evidence']['page_number']}) vs {b['metric_name']} ({b['raw_value']}, Page {b['evidence']['page_number']}) — different metrics & context."
+        f1, f2 = facts[0], facts[1]
+        cases[CASE3].append({
+            "relation_id": "rel-1",
+            "case_type": CASE3,
+            "fact_a": f1,
+            "fact_b": f2,
+            "title": f"Comparison: {f1['metric_name']} vs {f2['metric_name']}",
+            "reasoning": f"Comparing {f1['metric_name']} ({f1['raw_value']}) on Page {f1['evidence']['page_number']} with {f2['metric_name']} ({f2['raw_value']}) on Page {f2['evidence']['page_number']}."
         })
 
     if not facts:
-        cases[C_FAIL].append({
-            "relation_id": "r-fail", "case_type": C_FAIL,
-            "fact_a": {"fact_id": "nf", "metric_name": "None", "raw_value": "N/A", "normalized_value": 0, "unit": "N/A", "timeframe": "N/A", "evidence": {"doc_name": filename, "page_number": 1, "verbatim_quote": "No numerical facts found."}},
-            "title": f"No Numerical Facts Found in {filename}", "reasoning": "Document contains scanned images or non-numerical text layer."
+        cases[CASE4].append({
+            "relation_id": "rel-fail",
+            "case_type": CASE4,
+            "fact_a": {
+                "fact_id": "none",
+                "metric_name": "None",
+                "raw_value": "N/A",
+                "normalized_value": 0,
+                "unit": "N/A",
+                "timeframe": "N/A",
+                "evidence": {"doc_name": filename, "page_number": 1, "verbatim_quote": "No facts extracted from document."}
+            },
+            "title": f"No Facts Found in {filename}",
+            "reasoning": "This document contains no readable text numbers or scanned image content.",
+            "handling_strategy": "Try uploading a text-based PDF report."
         })
 
-    return {"dataset_id": f"upload-{filename}", "facts_extracted_count": len(facts), "reconciled_cases_count": sum(len(v) for v in cases.values()), "cases": cases, "facts": facts}
-
-def delhivery_demo():
-    f1 = {"fact_id":"d1","metric_name":"Revenue","raw_value":"₹36,465 Mn","normalized_value":36465,"unit":"INR Mn","timeframe":"FY21","evidence":{"doc_name":"01-delhivery-prospectus-2022.pdf","page_number":45,"verbatim_quote":"Revenue for Fiscal 2021 was ₹36,465 million."}}
-    f2 = {"fact_id":"d2","metric_name":"Revenue","raw_value":"₹81,417 Mn","normalized_value":81417,"unit":"INR Mn","timeframe":"FY24","evidence":{"doc_name":"02-delhivery-annual-report-fy24.pdf","page_number":2,"verbatim_quote":"Revenue reached ₹81,417 million in FY24."}}
-    f3 = {"fact_id":"d3","metric_name":"Express Parcel Volume","raw_value":"740 Mn Shipments","normalized_value":740,"unit":"Mn Shipments","timeframe":"FY24","evidence":{"doc_name":"02-delhivery-annual-report-fy24.pdf","page_number":2,"verbatim_quote":"Delivered 740 million express parcel shipments."}}
-    f4 = {"fact_id":"d4","metric_name":"Express Parcel Volume","raw_value":"740 Mn Shipments","normalized_value":740,"unit":"Mn Shipments","timeframe":"FY24","evidence":{"doc_name":"03-delhivery-q4-fy24-earnings.pdf","page_number":14,"verbatim_quote":"FY24 volume stood at 740 Mn shipments."}}
-    f5 = {"fact_id":"d5","metric_name":"Workforce","raw_value":"30,524 Employees","normalized_value":30524,"unit":"Persons","timeframe":"FY24","evidence":{"doc_name":"02-delhivery-annual-report-fy24.pdf","page_number":4,"verbatim_quote":"Direct workforce stood at 30,524 employees."}}
-    f6 = {"fact_id":"d6","metric_name":"Workforce","raw_value":"87,422 Personnel","normalized_value":87422,"unit":"Persons","timeframe":"FY24","evidence":{"doc_name":"02-delhivery-annual-report-fy24.pdf","page_number":52,"verbatim_quote":"Total active personnel reached 87,422."}}
-    
+    total_cases = sum(len(v) for v in cases.values())
     return {
-        "dataset_id": "delhivery", "facts_extracted_count": 6, "reconciled_cases_count": 3,
+        "dataset_id": f"upload-{filename}",
+        "facts_extracted_count": len(facts),
+        "reconciled_cases_count": total_cases,
+        "cases": cases,
+        "facts": facts
+    }
+
+def get_demo_data():
+    f1 = {"fact_id": "d1", "metric_name": "Revenue", "raw_value": "₹36,465 Mn", "normalized_value": 36465, "unit": "INR Mn", "timeframe": "FY21", "evidence": {"doc_name": "01-delhivery-prospectus-2022.pdf", "page_number": 45, "verbatim_quote": "Revenue for Fiscal 2021 was ₹36,465 million."}}
+    f2 = {"fact_id": "d2", "metric_name": "Revenue", "raw_value": "₹81,417 Mn", "normalized_value": 81417, "unit": "INR Mn", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 2, "verbatim_quote": "Revenue reached ₹81,417 million in FY24."}}
+    f3 = {"fact_id": "d3", "metric_name": "Express Parcel Volume", "raw_value": "740 Mn Shipments", "normalized_value": 740, "unit": "Mn Shipments", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 2, "verbatim_quote": "Delivered 740 million express parcel shipments."}}
+    f4 = {"fact_id": "d4", "metric_name": "Express Parcel Volume", "raw_value": "740 Mn Shipments", "normalized_value": 740, "unit": "Mn Shipments", "timeframe": "FY24", "evidence": {"doc_name": "03-delhivery-q4-fy24-earnings.pdf", "page_number": 14, "verbatim_quote": "FY24 volume stood at 740 Mn shipments."}}
+    f5 = {"fact_id": "d5", "metric_name": "Workforce", "raw_value": "30,524 Employees", "normalized_value": 30524, "unit": "Persons", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 4, "verbatim_quote": "Direct workforce stood at 30,524 employees."}}
+    f6 = {"fact_id": "d6", "metric_name": "Workforce", "raw_value": "87,422 Personnel", "normalized_value": 87422, "unit": "Persons", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 52, "verbatim_quote": "Total active personnel reached 87,422."}}
+
+    return {
+        "dataset_id": "delhivery",
+        "facts_extracted_count": 6,
+        "reconciled_cases_count": 3,
         "cases": {
-            C_CORR: [{"relation_id":"dc1","case_type":C_CORR,"fact_a":f3,"fact_b":f4,"title":"Matching Express Parcel Volume (FY24)","reasoning":"Both annual report and earnings presentation confirm 740 Mn shipments."}],
-            C_GEN:  [{"relation_id":"dc2","case_type":C_GEN,"fact_a":f5,"fact_b":f6,"title":"Conflict in Workforce Count (FY24)","reasoning":"Page 4 states 30,524 direct employees; Page 52 states 87,422 total personnel."}],
-            C_REC:  [{"relation_id":"dc3","case_type":C_REC,"fact_a":f1,"fact_b":f2,"title":"Revenue: FY21 vs FY24","reasoning":"₹36,465 Mn (FY21) vs ₹81,417 Mn (FY24) — growth over time."}],
-            C_FAIL: []
+            CASE1: [{"relation_id": "dc1", "case_type": CASE1, "fact_a": f3, "fact_b": f4, "title": "Matching Express Parcel Volume (FY24)", "reasoning": "Both Annual Report and Earnings Presentation state 740 Mn shipments for FY24."}],
+            CASE2: [{"relation_id": "dc2", "case_type": CASE2, "fact_a": f5, "fact_b": f6, "title": "Conflict in Workforce Count (FY24)", "reasoning": "Page 4 states 30,524 direct employees; Page 52 states 87,422 total personnel."}],
+            CASE3: [{"relation_id": "dc3", "case_type": CASE3, "fact_a": f1, "fact_b": f2, "title": "Revenue Growth (FY21 vs FY24)", "reasoning": "₹36,465 Mn (FY21) vs ₹81,417 Mn (FY24) — growth over 3 years."}],
+            CASE4: []
         },
         "facts": [f1, f2, f3, f4, f5, f6]
     }
 
+# Web Routes
 @app.get("/")
-def index(): return FileResponse(str(STATIC / "index.html"))
+def home():
+    return FileResponse(str(STATIC_DIR / "index.html"))
 
 @app.get("/api/analysis/{dataset_id}")
-def get_analysis(dataset_id: str): return delhivery_demo()
+def get_analysis(dataset_id: str):
+    return get_demo_data()
 
 @app.post("/api/upload")
 def upload_pdf(file: UploadFile = File(...)):
-    if not file.filename.lower().endswith(".pdf"): raise HTTPException(400, "PDF only")
-    path = UPLOADS / file.filename
-    with open(path, "wb") as f: shutil.copyfileobj(file.file, f)
-    return process_pdf(str(path), file.filename)
+    save_path = UPLOAD_DIR / file.filename
+    with open(save_path, "wb") as buffer:
+        buffer.write(file.file.read())
+    return extract_pdf_data(str(save_path), file.filename)
