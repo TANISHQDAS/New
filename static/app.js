@@ -62,7 +62,7 @@ function renderAnalysis(data) {
 function renderCases(cases) {
   const grid = document.getElementById("casesGrid");
   grid.innerHTML = "";
-  const maxCardsPerCase = 24;
+  const maxCardsPerCase = 10;
 
   const caseConfig = [
     { key: "Case 1: Corroborated Fact", class: "case1", icon: "✅", label: "Case 1: Matching Fact" },
