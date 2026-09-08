@@ -18,83 +18,128 @@ C_GEN  = "Case 2: Genuine Contradiction"
 C_REC  = "Case 3: Apparent Contradiction (Reconciled by Context)"
 C_FAIL = "Case 4: Extraction/Reasoning Failure & Mitigation"
 
+# Broad extraction patterns covering major & minor numerical facts across any PDF
 PATTERNS = [
-    ("Revenue", r"(?:revenue|sales)[^\n]{0,60}?(?:rs\.?|inr|\$)\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion)?", "INR Cr"),
-    ("Net Profit", r"(?:net profit|pat)[^\n]{0,60}?(?:rs\.?|inr|\$)\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million)?", "INR Cr"),
-    ("EBITDA", r"(?:ebitda)[^\n]{0,60}?(?:rs\.?|inr|\$)\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million)?", "INR Cr"),
-    ("Workforce", r"(?:employees|workforce|personnel)[^\n]{0,40}?:\s*([\d,]+)", "Persons"),
-    ("Shipments", r"(?:shipments|parcels)[^\n]{0,30}?:\s*([\d,]+\.?\d*)\s*(mn|million|cr)?", "Units"),
+    ("Revenue / Income", r"(?:revenue|sales|income|turnover|earnings)[^\n]{0,50}?(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion|lakh)?", "Currency"),
+    ("Profit / PAT", r"(?:net profit|pat|profit|margin)[^\n]{0,50}?(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion|lakh)?", "Currency"),
+    ("EBITDA / Operating Profit", r"(?:ebitda|operating profit)[^\n]{0,50}?(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million)?", "Currency"),
+    ("Workforce / Employees", r"(?:employees|workforce|personnel|staff|headcount)[^\n]{0,40}?:\s*([\d,]+)", "Persons"),
+    ("Volume / Shipments", r"(?:shipments|parcels|units|volume|quantity)[^\n]{0,30}?:\s*([\d,]+\.?\d*)\s*(mn|million|cr|lakh)?", "Units"),
+    ("Total Assets / Capital", r"(?:total assets|assets|capital|investment)[^\n]{0,50}?(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion)?", "Currency"),
+    ("Debt / Liabilities", r"(?:debt|borrowings|liabilities)[^\n]{0,50}?(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion)?", "Currency"),
+    ("Rate / Percentage", r"(?:rate|percentage|growth|inflation|gdp|roi|roe|interest|share)[^\n]{0,40}?:\s*([\d\.]+)\s*(?:%|percent)", "%"),
+    ("General Metric / Value", r"([a-zA-Z\s]{3,25})\s*[:=]\s*(?:rs\.?|inr|\$|€|£)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion|%|units|kg|m)?", "Value")
 ]
 
-PERIODS = [(r"q4\s*fy\s*24", "Q4 FY24"), (r"fy\s*24|2023-24", "FY24"), (r"fy\s*23|2022-23", "FY23"), (r"fy\s*21|2020-21", "FY21")]
+PERIOD_PATTERNS = [
+    (r"q[1-4]\s*fy\s*\d{2,4}", lambda m: m.group(0).upper()),
+    (r"fy\s*\d{2,4}|20\d{2}[-–]\d{2,4}", lambda m: m.group(0).upper()),
+    (r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+20\d{2}", lambda m: m.group(0).title()),
+    (r"20\d{2}", lambda m: m.group(0))
+]
 
 def parse_num(val, mult=""):
     try:
-        n = float(val.replace(",", ""))
-        m = (mult or "").lower()
-        return round(n/100, 4) if "lakh" in m else (round(n/10, 4) if "mn" in m or "million" in m else (round(n*100, 4) if "billion" in m else n))
-    except: return 0.0
+        n = float(str(val).replace(",", "").strip())
+        m = (mult or "").lower().strip()
+        if "lakh" in m: return round(n / 100, 4)
+        if "mn" in m or "million" in m: return round(n / 10, 4)
+        if "billion" in m or m == "b": return round(n * 100, 4)
+        return n
+    except:
+        return 0.0
+
+def detect_period(text):
+    for pat, formatter in PERIOD_PATTERNS:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m: return formatter(m)
+    return "N/A"
 
 def process_pdf(pdf_path, filename):
-    reader = pypdf.PdfReader(pdf_path)
+    try:
+        reader = pypdf.PdfReader(pdf_path)
+    except Exception as e:
+        return {"dataset_id": f"upload-{filename}", "facts_extracted_count": 0, "reconciled_cases_count": 1,
+                "cases": {C_CORR:[], C_GEN:[], C_REC:[], C_FAIL:[{"relation_id":"r-fail","case_type":C_FAIL,"fact_a":None,"title":"Unreadable PDF","reasoning":str(e)}]}, "facts":[]}
+
     facts, seen = [], set()
+
     for idx, page in enumerate(reader.pages):
         text = page.extract_text() or ""
         for line in text.split("\n"):
             line_str = line.strip()
-            if not line_str: continue
+            if not line_str or len(line_str) < 5: continue
             ll = line_str.lower()
+
             for name, reg, unit in PATTERNS:
                 m = re.search(reg, ll)
                 if m:
-                    raw_val, mult = m.group(1), m.group(2) if len(m.groups())>=2 and m.group(2) else ""
+                    if name == "General Metric / Value":
+                        label_raw, raw_val = m.group(1).strip().title(), m.group(2)
+                        mult = m.group(3) if len(m.groups()) >= 3 and m.group(3) else ""
+                        metric_name = f"Metric: {label_raw}"
+                    else:
+                        raw_val = m.group(1)
+                        mult = m.group(2) if len(m.groups()) >= 2 and m.group(2) else ""
+                        metric_name = name
+
                     norm = parse_num(raw_val, mult)
                     if norm <= 0: continue
-                    period = "N/A"
-                    for pr, pl in PERIODS:
-                        if re.search(pr, ll): period = pl; break
-                    raw_str = f"{raw_val} {mult}".strip()
-                    key = (name, raw_str, period)
+                    period = detect_period(line_str)
+                    raw_str = f"{raw_val} {mult}".strip() if mult else raw_val
+                    key = (metric_name, raw_str, period)
+
                     if key in seen: continue
                     seen.add(key)
+
                     facts.append({
                         "fact_id": f"f-{len(facts)+1}",
-                        "metric_name": name,
+                        "metric_name": metric_name,
                         "raw_value": raw_str,
                         "normalized_value": norm,
                         "unit": unit,
                         "timeframe": period,
-                        "evidence": {"doc_name": filename, "page_number": idx+1, "verbatim_quote": line_str[:200]}
+                        "evidence": {"doc_name": filename, "page_number": idx + 1, "verbatim_quote": line_str[:200]}
                     })
 
     cases = {C_CORR: [], C_GEN: [], C_REC: [], C_FAIL: []}
     grouped = {}
     for f in facts: grouped.setdefault(f["metric_name"], []).append(f)
-    
+
     rel_id = 1
+    # Check metric pairs for cases
     for metric, lst in grouped.items():
         if len(lst) < 2: continue
         for i in range(len(lst)):
-            for j in range(i+1, len(lst)):
+            for j in range(i + 1, len(lst)):
                 a, b = lst[i], lst[j]
                 if a["evidence"]["page_number"] == b["evidence"]["page_number"]: continue
                 src_a, src_b = f"Page {a['evidence']['page_number']}", f"Page {b['evidence']['page_number']}"
-                same_period = a["timeframe"] == b["timeframe"]
+                same_period = (a["timeframe"] == b["timeframe"]) and a["timeframe"] != "N/A"
                 same_val = abs(a["normalized_value"] - b["normalized_value"]) < 0.05 * max(a["normalized_value"], b["normalized_value"], 1.0)
-                
+
                 if same_period and same_val:
                     cases[C_CORR].append({"relation_id": f"r-{rel_id}", "case_type": C_CORR, "fact_a": a, "fact_b": b, "title": f"Matching {metric} ({a['timeframe']})", "reasoning": f"{metric} = {a['raw_value']} matched in {src_a} and {src_b}."})
                 elif same_period and not same_val:
                     cases[C_GEN].append({"relation_id": f"r-{rel_id}", "case_type": C_GEN, "fact_a": a, "fact_b": b, "title": f"Conflict in {metric} ({a['timeframe']})", "reasoning": f"{metric} for {a['timeframe']}: {a['raw_value']} ({src_a}) vs {b['raw_value']} ({src_b})."})
-                elif not same_period and not same_val:
-                    cases[C_REC].append({"relation_id": f"r-{rel_id}", "case_type": C_REC, "fact_a": a, "fact_b": b, "title": f"{metric}: {a['timeframe']} vs {b['timeframe']}", "reasoning": f"{a['raw_value']} ({src_a}, {a['timeframe']}) vs {b['raw_value']} ({src_b}, {b['timeframe']}) — different time periods."})
+                else:
+                    cases[C_REC].append({"relation_id": f"r-{rel_id}", "case_type": C_REC, "fact_a": a, "fact_b": b, "title": f"{metric}: {a['timeframe']} vs {b['timeframe']}", "reasoning": f"{a['raw_value']} ({src_a}, {a['timeframe']}) vs {b['raw_value']} ({src_b}, {b['timeframe']}) — reconciled by context."})
                 rel_id += 1
+
+    # Cross-metric context reconciliation if no direct metric duplicates
+    if len(facts) >= 2 and sum(len(v) for v in cases.values()) == 0:
+        a, b = facts[0], facts[1]
+        cases[C_REC].append({
+            "relation_id": "r-1", "case_type": C_REC, "fact_a": a, "fact_b": b,
+            "title": f"Context Comparison: {a['metric_name']} vs {b['metric_name']}",
+            "reasoning": f"{a['metric_name']} ({a['raw_value']}, Page {a['evidence']['page_number']}) vs {b['metric_name']} ({b['raw_value']}, Page {b['evidence']['page_number']}) — different metrics & context."
+        })
 
     if not facts:
         cases[C_FAIL].append({
             "relation_id": "r-fail", "case_type": C_FAIL,
-            "fact_a": {"fact_id": "nf", "metric_name": "None", "raw_value": "N/A", "normalized_value": 0, "unit": "N/A", "timeframe": "N/A", "evidence": {"doc_name": filename, "page_number": 1, "verbatim_quote": "No facts extracted."}},
-            "title": f"No Facts Extracted from {filename}", "reasoning": "PDF has no clear numeric facts layer."
+            "fact_a": {"fact_id": "nf", "metric_name": "None", "raw_value": "N/A", "normalized_value": 0, "unit": "N/A", "timeframe": "N/A", "evidence": {"doc_name": filename, "page_number": 1, "verbatim_quote": "No numerical facts found."}},
+            "title": f"No Numerical Facts Found in {filename}", "reasoning": "Document contains scanned images or non-numerical text layer."
         })
 
     return {"dataset_id": f"upload-{filename}", "facts_extracted_count": len(facts), "reconciled_cases_count": sum(len(v) for v in cases.values()), "cases": cases, "facts": facts}
