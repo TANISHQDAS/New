@@ -138,10 +138,10 @@ select, input[type="text"] {
   color: #2c3e50;
 }
 
-.case-summary {
-  font-size: 14px;
-  margin-bottom: 12px;
-  color: #555555;
+.result-text, .fix-text {
+  font-size: 13px;
+  margin: 6px 0 0 0;
+  color: #444;
 }
 
 /* Evidence Comparison Box */
@@ -168,15 +168,6 @@ select, input[type="text"] {
   margin-top: 5px;
 }
 
-.reasoning {
-  background-color: #eef7fc;
-  border: 1px solid #d4e6f1;
-  padding: 10px 12px;
-  border-radius: 4px;
-  font-size: 13px;
-  color: #1b4f72;
-  margin-top: 10px;
-}
 
 /* Simple Table */
 table {

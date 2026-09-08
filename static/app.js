@@ -45,9 +45,7 @@ function renderCases(cases) {
       if (rel.fact_a) {
         docAHTML = `
           <div class="doc-box">
-            <strong>Doc A (${rel.fact_a.evidence.doc_name}, Page ${rel.fact_a.evidence.page_number}):</strong><br>
-            ${rel.fact_a.metric_name} = ${rel.fact_a.raw_value} (${rel.fact_a.timeframe})
-            <div class="quote">"${rel.fact_a.evidence.verbatim_quote}"</div>
+            <strong>Doc A</strong> — ${rel.fact_a.metric_name}: <strong>${rel.fact_a.raw_value}</strong> (${rel.fact_a.timeframe}, Page ${rel.fact_a.evidence.page_number})
           </div>
         `;
       }
@@ -56,31 +54,25 @@ function renderCases(cases) {
       if (rel.fact_b) {
         docBHTML = `
           <div class="doc-box">
-            <strong>Doc B (${rel.fact_b.evidence.doc_name}, Page ${rel.fact_b.evidence.page_number}):</strong><br>
-            ${rel.fact_b.metric_name} = ${rel.fact_b.raw_value} (${rel.fact_b.timeframe})
-            <div class="quote">"${rel.fact_b.evidence.verbatim_quote}"</div>
+            <strong>Doc B</strong> — ${rel.fact_b.metric_name}: <strong>${rel.fact_b.raw_value}</strong> (${rel.fact_b.timeframe}, Page ${rel.fact_b.evidence.page_number})
           </div>
         `;
       }
 
       let mitigationHTML = "";
       if (rel.handling_strategy) {
-        mitigationHTML = `
-          <div style="background-color: #fff8e6; border: 1px solid #ffe0b2; padding: 6px 10px; border-radius: 4px; margin-top: 8px; font-size: 13px; color: #b78103;">
-            <strong>Fix:</strong> ${rel.handling_strategy}
-          </div>
-        `;
+        const shortFix = rel.handling_strategy.split(".")[0] + ".";
+        mitigationHTML = `<p class="fix-text"><strong>Fix:</strong> ${shortFix}</p>`;
       }
+
+      const shortResult = rel.reasoning ? rel.reasoning.split(".")[0] + "." : "";
 
       card.innerHTML = `
         <span class="case-badge">${cfg.icon} ${cfg.label}</span>
         <div class="case-title">${rel.title}</div>
-        <div class="case-summary">${rel.summary}</div>
         ${docAHTML}
         ${docBHTML}
-        <div class="reasoning">
-          <strong>Result:</strong> ${rel.reasoning}
-        </div>
+        <p class="result-text"><strong>Result:</strong> ${shortResult}</p>
         ${mitigationHTML}
       `;
       grid.appendChild(card);
