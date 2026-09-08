@@ -76,10 +76,7 @@ async def upload_pdf(file: UploadFile = File(...)):
     except Exception as e:
         import traceback
         traceback.print_exc()
-        # Fallback to curated analysis on upload processing failure
-        analysis = DatasetManager.load_dataset_analysis("delhivery")
-        analysis["dataset_id"] = f"upload-{file.filename}"
-        return analysis
+        raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

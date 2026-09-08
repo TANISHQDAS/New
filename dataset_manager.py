@@ -52,29 +52,64 @@ class DatasetManager:
 
     @classmethod
     def analyze_uploaded_pdf(cls, file_path: str, filename: str) -> Dict[str, Any]:
-        base_delh = cls._get_delhivery_curated_analysis()
-
         try:
             pages = PDFExtractor.extract_pages(file_path)
             facts = FactExtractor.extract_facts_from_pages(filename, pages)
 
-            # Merge with baseline dataset facts to enable cross-document reconciliation
-            all_combined_facts = base_delh["facts"] + facts
-            reconciled_relations = FactReconciler.reconcile_facts(all_combined_facts)
+            # Run reconciler on extracted facts only
+            reconciled_relations = FactReconciler.reconcile_facts(facts)
 
+            # Build 4-case dict from reconciled relations
             cases_dict = {
-                CaseType.CORROBORATED.value: list(base_delh["cases"][CaseType.CORROBORATED.value]),
-                CaseType.GENUINE_CONTRADICTION.value: list(base_delh["cases"][CaseType.GENUINE_CONTRADICTION.value]),
-                CaseType.RECONCILED_CONTRADICTION.value: list(base_delh["cases"][CaseType.RECONCILED_CONTRADICTION.value]),
-                CaseType.EXTRACTION_FAILURE.value: list(base_delh["cases"][CaseType.EXTRACTION_FAILURE.value])
+                CaseType.CORROBORATED.value: [],
+                CaseType.GENUINE_CONTRADICTION.value: [],
+                CaseType.RECONCILED_CONTRADICTION.value: [],
+                CaseType.EXTRACTION_FAILURE.value: []
             }
 
-            # Add any newly reconciled relations involving the uploaded file
             for rel in reconciled_relations:
-                if rel.fact_a.evidence.doc_name == filename or (rel.fact_b and rel.fact_b.evidence.doc_name == filename):
-                    rel_key = rel.case_type.value if hasattr(rel.case_type, 'value') else str(rel.case_type)
-                    if rel_key in cases_dict:
-                        cases_dict[rel_key].append(rel)
+                key = rel.case_type.value if hasattr(rel.case_type, "value") else str(rel.case_type)
+                if key in cases_dict:
+                    cases_dict[key].append(rel)
+
+            # If no facts found, add a placeholder extraction failure note
+            if not facts:
+                from models import ReconciliationRelation, Fact, SourceEvidence
+                placeholder_fact = Fact(
+                    fact_id="fact-no-extract-01",
+                    entity=filename,
+                    metric_name="No Facts Extracted",
+                    raw_value="N/A",
+                    normalized_value=0.0,
+                    unit="N/A",
+                    timeframe="N/A",
+                    scope="N/A",
+                    evidence=SourceEvidence(
+                        doc_id=filename,
+                        doc_name=filename,
+                        page_number=1,
+                        verbatim_quote="No recognizable financial metrics found in this PDF.",
+                        section_title="Extraction Result",
+                        context_snippet="The PDF was read but no matching numerical facts were detected by the extraction patterns."
+                    ),
+                    confidence=0.0,
+                    tags=["extraction_warning"]
+                )
+                cases_dict[CaseType.EXTRACTION_FAILURE.value].append(
+                    ReconciliationRelation(
+                        relation_id="rel-no-extract-01",
+                        case_type=CaseType.EXTRACTION_FAILURE,
+                        fact_a=placeholder_fact,
+                        fact_b=None,
+                        title=f"No Facts Found in {filename}",
+                        summary="The extraction pipeline could not identify any recognizable financial metrics in this PDF.",
+                        reasoning="The PDF may contain scanned images (not text), unsupported formatting, or metrics not covered by current extraction patterns.",
+                        reconciliation_factors=["No text-based metrics detected"],
+                        source_documents=[filename],
+                        confidence=0.0,
+                        handling_strategy="Try uploading a text-based PDF with clear numerical financial data such as revenue, profit, headcount, or growth rates."
+                    )
+                )
 
             return {
                 "student_name": "Abhi Pandey",
@@ -83,19 +118,13 @@ class DatasetManager:
                 "facts_extracted_count": len(facts),
                 "reconciled_cases_count": sum(len(v) for v in cases_dict.values()),
                 "cases": cases_dict,
-                "facts": facts if len(facts) > 0 else base_delh["facts"]
+                "facts": facts
             }
+
         except Exception as e:
-            print(f"Error in analyze_uploaded_pdf: {e}")
-            return {
-                "student_name": "Abhi Pandey",
-                "student_id": "23BAI10909",
-                "dataset_id": f"upload-{filename}",
-                "facts_extracted_count": 0,
-                "reconciled_cases_count": sum(len(v) for v in base_delh["cases"].values()),
-                "cases": base_delh["cases"],
-                "facts": base_delh["facts"]
-            }
+            import traceback
+            traceback.print_exc()
+            raise RuntimeError(f"PDF extraction failed: {str(e)}")
 
     @classmethod
     def _get_delhivery_curated_analysis(cls) -> Dict[str, Any]:
