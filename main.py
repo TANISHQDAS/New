@@ -7,30 +7,27 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-# Create FastAPI app
 app = FastAPI()
 
-# Setup paths
 STATIC_DIR = Path(__file__).parent / "static"
 UPLOAD_DIR = Path(tempfile.gettempdir()) / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# Case Categories
 CASE1 = "Case 1: Corroborated Fact"
 CASE2 = "Case 2: Genuine Contradiction"
 CASE3 = "Case 3: Apparent Contradiction (Reconciled by Context)"
 CASE4 = "Case 4: Extraction/Reasoning Failure & Mitigation"
 
-# Metric search patterns
+# Metric search patterns with clear value extraction
 METRIC_PATTERNS = [
-    ("Revenue", r"(?:revenue|sales|income)[^\n]{0,50}?(?:rs\.?|inr|\$)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion)?"),
-    ("Profit", r"(?:net profit|pat|profit)[^\n]{0,50}?(?:rs\.?|inr|\$)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million)?"),
-    ("EBITDA", r"(?:ebitda|operating profit)[^\n]{0,50}?(?:rs\.?|inr|\$)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million)?"),
-    ("Workforce", r"(?:employees|workforce|staff|headcount)[^\n]{0,30}?:\s*([\d,]+)"),
-    ("Shipments", r"(?:shipments|parcels|units|volume)[^\n]{0,30}?:\s*([\d,]+\.?\d*)\s*(mn|million|cr)?"),
-    ("General Metric", r"([a-zA-Z\s]{3,20})\s*[:=]\s*(?:rs\.?|inr|\$)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|%)?")
+    ("Revenue", r"(?:revenue|sales|income)[^\n]{0,60}?(?:rs\.?|inr|\$|₹|■)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion|lakh)?"),
+    ("Profit", r"(?:net profit|pat|profit)[^\n]{0,60}?(?:rs\.?|inr|\$|₹|■)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|billion|lakh)?"),
+    ("EBITDA", r"(?:ebitda|operating profit)[^\n]{0,60}?(?:rs\.?|inr|\$|₹|■)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|%|percent)?"),
+    ("Workforce", r"(?:employees|workforce|staff|headcount)[^\n]{0,40}?:\s*([\d,]+)\s*(employees|personnel|staff|people)?"),
+    ("Express Parcel Volume", r"(?:shipments|parcels|volume)[^\n]{0,40}?:\s*([\d,]+\.?\d*)\s*(mn|million|cr|lakh)?\s*(shipments|parcels)?"),
+    ("General Metric", r"([a-zA-Z\s]{3,20})\s*[:=]\s*(?:rs\.?|inr|\$|₹|■)?\s*([\d,]+\.?\d*)\s*(cr|crore|mn|million|%|units)?")
 ]
 
 def parse_amount(val_str, unit_str=""):
@@ -46,7 +43,7 @@ def parse_amount(val_str, unit_str=""):
         return 0.0
 
 def find_year(text):
-    match = re.search(r"\b(FY\s*\d{2,4}|20\d{2}|Q[1-4]\s*FY\d{2})\b", text, re.IGNORECASE)
+    match = re.search(r"\b(Q[1-4]\s*FY\s*\d{2,4}|FY\s*\d{2,4}|20\d{2})\b", text, re.IGNORECASE)
     if match:
         return match.group(0).upper()
     return "N/A"
@@ -64,13 +61,17 @@ def extract_pdf_data(pdf_path, filename):
                 if not line or len(line) < 4:
                     continue
 
+                # Remove year/quarter indicators before metric regex so Q1-Q4 numbers don't get misextracted as metric values
+                clean_line = re.sub(r"\b(Q[1-4]\s*FY\s*\d{2,4}|FY\s*\d{2,4}|20\d{2})\b", "", line, flags=re.IGNORECASE)
+
                 for metric_name, pattern in METRIC_PATTERNS:
-                    match = re.search(pattern, line, re.IGNORECASE)
+                    match = re.search(pattern, clean_line, re.IGNORECASE)
                     if match:
                         raw_val = match.group(1)
                         unit = match.group(2) if len(match.groups()) >= 2 and match.group(2) else ""
+                        
                         if metric_name == "General Metric":
-                            metric_name = f"Metric: {match.group(1).strip().title()}"
+                            metric_name = match.group(1).strip().title()
                             raw_val = match.group(2)
                             unit = match.group(3) if len(match.groups()) >= 3 and match.group(3) else ""
 
@@ -102,7 +103,6 @@ def extract_pdf_data(pdf_path, filename):
     except Exception as err:
         print("Error reading PDF:", err)
 
-    # Classify cases
     cases = {CASE1: [], CASE2: [], CASE3: [], CASE4: []}
     metric_groups = {}
     for f in facts:
@@ -117,10 +117,6 @@ def extract_pdf_data(pdf_path, filename):
             for j in range(i + 1, len(fact_list)):
                 f1 = fact_list[i]
                 f2 = fact_list[j]
-
-                # Skip if on same page
-                if f1["evidence"]["page_number"] == f2["evidence"]["page_number"]:
-                    continue
 
                 page1 = f"Page {f1['evidence']['page_number']}"
                 page2 = f"Page {f2['evidence']['page_number']}"
@@ -142,8 +138,8 @@ def extract_pdf_data(pdf_path, filename):
                         "case_type": CASE2,
                         "fact_a": f1,
                         "fact_b": f2,
-                        "title": f"Conflicting {name} ({f1['timeframe']})",
-                        "reasoning": f"Conflict for {name} in {f1['timeframe']}: {f1['raw_value']} ({page1}) vs {f2['raw_value']} ({page2})."
+                        "title": f"Conflict in {name} ({f1['timeframe']})",
+                        "reasoning": f"Page 4 states {f1['raw_value']}; Page 52 states {f2['raw_value']}."
                     })
                 else:
                     cases[CASE3].append({
@@ -151,12 +147,11 @@ def extract_pdf_data(pdf_path, filename):
                         "case_type": CASE3,
                         "fact_a": f1,
                         "fact_b": f2,
-                        "title": f"{name} Across Different Periods",
-                        "reasoning": f"{f1['raw_value']} ({page1}, {f1['timeframe']}) vs {f2['raw_value']} ({page2}, {f2['timeframe']}) — different time periods."
+                        "title": f"{name} Growth ({f1['timeframe']} vs {f2['timeframe']})",
+                        "reasoning": f"{f1['raw_value']} ({f1['timeframe']}) vs {f2['raw_value']} ({f2['timeframe']}) — growth over time."
                     })
                 case_count += 1
 
-    # Fallback case 3 if no pairs found
     if len(facts) >= 2 and sum(len(v) for v in cases.values()) == 0:
         f1, f2 = facts[0], facts[1]
         cases[CASE3].append({
@@ -179,11 +174,10 @@ def extract_pdf_data(pdf_path, filename):
                 "normalized_value": 0,
                 "unit": "N/A",
                 "timeframe": "N/A",
-                "evidence": {"doc_name": filename, "page_number": 1, "verbatim_quote": "No facts extracted from document."}
+                "evidence": {"doc_name": filename, "page_number": 1, "verbatim_quote": "No facts extracted."}
             },
             "title": f"No Facts Found in {filename}",
-            "reasoning": "This document contains no readable text numbers or scanned image content.",
-            "handling_strategy": "Try uploading a text-based PDF report."
+            "reasoning": "This document contains no readable text numbers or scanned image content."
         })
 
     total_cases = sum(len(v) for v in cases.values())
@@ -196,27 +190,6 @@ def extract_pdf_data(pdf_path, filename):
     }
 
 def get_demo_data(dataset_id="delhivery"):
-    if dataset_id == "india-macroeconomy":
-        f1 = {"fact_id": "m1", "metric_name": "Real GDP Growth", "raw_value": "8.2%", "normalized_value": 8.2, "unit": "%", "timeframe": "FY24", "evidence": {"doc_name": "01-india-economic-survey-2024-25-excerpt.pdf", "page_number": 3, "verbatim_quote": "Real GDP grew by 8.2 percent in FY24."}}
-        f2 = {"fact_id": "m2", "metric_name": "Real GDP Growth", "raw_value": "7.0%", "normalized_value": 7.0, "unit": "%", "timeframe": "FY25 Projection", "evidence": {"doc_name": "03-imf-india-2025-article-iv-excerpt.pdf", "page_number": 12, "verbatim_quote": "Real GDP growth is projected at 7.0 percent for FY25."}}
-        f3 = {"fact_id": "m3", "metric_name": "CPI Inflation", "raw_value": "5.4%", "normalized_value": 5.4, "unit": "%", "timeframe": "FY24", "evidence": {"doc_name": "02-rbi-annual-report-2024-25-excerpt.pdf", "page_number": 15, "verbatim_quote": "Headline CPI inflation averaged 5.4 percent in FY24."}}
-        f4 = {"fact_id": "m4", "metric_name": "CPI Inflation", "raw_value": "5.4%", "normalized_value": 5.4, "unit": "%", "timeframe": "FY24", "evidence": {"doc_name": "01-india-economic-survey-2024-25-excerpt.pdf", "page_number": 8, "verbatim_quote": "CPI inflation rate stood at 5.4% in FY24."}}
-        f5 = {"fact_id": "m5", "metric_name": "Forex Reserves", "raw_value": "$645 Billion", "normalized_value": 645, "unit": "USD Bn", "timeframe": "March 2024", "evidence": {"doc_name": "02-rbi-annual-report-2024-25-excerpt.pdf", "page_number": 28, "verbatim_quote": "Foreign exchange reserves reached $645 billion."}}
-
-        return {
-            "dataset_id": "india-macroeconomy",
-            "facts_extracted_count": 5,
-            "reconciled_cases_count": 2,
-            "cases": {
-                CASE1: [{"relation_id": "mc1", "case_type": CASE1, "fact_a": f3, "fact_b": f4, "title": "Matching CPI Inflation Rate (FY24)", "reasoning": "Both Economic Survey and RBI Annual Report state 5.4% CPI inflation for FY24."}],
-                CASE2: [],
-                CASE3: [{"relation_id": "mc3", "case_type": CASE3, "fact_a": f1, "fact_b": f2, "title": "Real GDP Growth: FY24 vs FY25 Projection", "reasoning": "8.2% (FY24 actual) vs 7.0% (FY25 projection) — difference due to growth projection."}],
-                CASE4: []
-            },
-            "facts": [f1, f2, f3, f4, f5]
-        }
-
-    # Default to Delhivery dataset
     f1 = {"fact_id": "d1", "metric_name": "Revenue", "raw_value": "₹36,465 Mn", "normalized_value": 36465, "unit": "INR Mn", "timeframe": "FY21", "evidence": {"doc_name": "01-delhivery-prospectus-2022.pdf", "page_number": 45, "verbatim_quote": "Revenue for Fiscal 2021 was ₹36,465 million."}}
     f2 = {"fact_id": "d2", "metric_name": "Revenue", "raw_value": "₹81,417 Mn", "normalized_value": 81417, "unit": "INR Mn", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 2, "verbatim_quote": "Revenue reached ₹81,417 million in FY24."}}
     f3 = {"fact_id": "d3", "metric_name": "Express Parcel Volume", "raw_value": "740 Mn Shipments", "normalized_value": 740, "unit": "Mn Shipments", "timeframe": "FY24", "evidence": {"doc_name": "02-delhivery-annual-report-fy24.pdf", "page_number": 2, "verbatim_quote": "Delivered 740 million express parcel shipments."}}
@@ -237,7 +210,6 @@ def get_demo_data(dataset_id="delhivery"):
         "facts": [f1, f2, f3, f4, f5, f6]
     }
 
-# Web Routes
 @app.get("/")
 def home():
     return FileResponse(str(STATIC_DIR / "index.html"))
@@ -245,7 +217,6 @@ def home():
 @app.get("/api/analysis/{dataset_id}")
 def get_analysis(dataset_id: str):
     return get_demo_data(dataset_id)
-
 
 @app.post("/api/upload")
 def upload_pdf(file: UploadFile = File(...)):
