@@ -27,16 +27,16 @@ function renderAnalysis(data) {
   renderFactsTable(data.facts);
 }
 
-// Render the 4 cases
+// Render the 4 cases in simple basic format
 function renderCases(cases) {
   const grid = document.getElementById("casesGrid");
   grid.innerHTML = "";
 
   const caseConfig = [
-    { key: "Case 1: Corroborated Fact", class: "case1", icon: "✅", title: "Case 1: Corroborated Fact Across Documents" },
-    { key: "Case 2: Genuine Contradiction", class: "case2", icon: "🚨", title: "Case 2: Genuine or Likely Contradiction" },
-    { key: "Case 3: Apparent Contradiction (Reconciled by Context)", class: "case3", icon: "🧩", title: "Case 3: Apparent Contradiction Reconciled by Context" },
-    { key: "Case 4: Extraction/Reasoning Failure & Mitigation", class: "case4", icon: "⚠️", title: "Case 4: Extraction / Reasoning Failure & Handling" }
+    { key: "Case 1: Corroborated Fact", class: "case1", icon: "✅", label: "Case 1: Matching Information Across Documents" },
+    { key: "Case 2: Genuine Contradiction", class: "case2", icon: "🚨", label: "Case 2: Conflicting Information (Direct Conflict)" },
+    { key: "Case 3: Apparent Contradiction (Reconciled by Context)", class: "case3", icon: "🧩", label: "Case 3: Reconciled by Context (Different Years / Units)" },
+    { key: "Case 4: Extraction/Reasoning Failure & Mitigation", class: "case4", icon: "⚠️", label: "Case 4: Footnote / Scope Note Handling" }
   ];
 
   caseConfig.forEach(cfg => {
@@ -49,8 +49,8 @@ function renderCases(cases) {
       if (rel.fact_a) {
         docAHTML = `
           <div class="doc-box">
-            <span class="doc-name">📄 Document A (${rel.fact_a.evidence.doc_name}, Page ${rel.fact_a.evidence.page_number}):</span><br>
-            <strong>${rel.fact_a.metric_name}</strong> = ${rel.fact_a.raw_value} (${rel.fact_a.timeframe})
+            <strong>📄 Document 1:</strong> ${rel.fact_a.evidence.doc_name} (Page ${rel.fact_a.evidence.page_number})<br>
+            <strong>Value Extracted:</strong> <span style="color: #2980b9;">${rel.fact_a.metric_name} = ${rel.fact_a.raw_value}</span> (${rel.fact_a.timeframe})
             <div class="quote">"${rel.fact_a.evidence.verbatim_quote}"</div>
           </div>
         `;
@@ -60,8 +60,8 @@ function renderCases(cases) {
       if (rel.fact_b) {
         docBHTML = `
           <div class="doc-box">
-            <span class="doc-name">📄 Document B (${rel.fact_b.evidence.doc_name}, Page ${rel.fact_b.evidence.page_number}):</span><br>
-            <strong>${rel.fact_b.metric_name}</strong> = ${rel.fact_b.raw_value} (${rel.fact_b.timeframe})
+            <strong>📄 Document 2:</strong> ${rel.fact_b.evidence.doc_name} (Page ${rel.fact_b.evidence.page_number})<br>
+            <strong>Value Extracted:</strong> <span style="color: #2980b9;">${rel.fact_b.metric_name} = ${rel.fact_b.raw_value}</span> (${rel.fact_b.timeframe})
             <div class="quote">"${rel.fact_b.evidence.verbatim_quote}"</div>
           </div>
         `;
@@ -70,20 +70,20 @@ function renderCases(cases) {
       let mitigationHTML = "";
       if (rel.handling_strategy) {
         mitigationHTML = `
-          <div style="background-color: #fff8e6; border: 1px solid #ffe0b2; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 13px; color: #b78103;">
-            <strong>🛠️ Mitigation Strategy:</strong> ${rel.handling_strategy}
+          <div style="background-color: #fff8e6; border: 1px solid #ffe0b2; padding: 8px 12px; border-radius: 4px; margin-top: 10px; font-size: 13px; color: #b78103;">
+            <strong>🔧 How System Fixed It:</strong> ${rel.handling_strategy}
           </div>
         `;
       }
 
       card.innerHTML = `
-        <span class="case-badge">${cfg.icon} ${rel.case_type}</span>
+        <span class="case-badge">${cfg.icon} ${cfg.label}</span>
         <div class="case-title">${rel.title}</div>
         <div class="case-summary">${rel.summary}</div>
         ${docAHTML}
         ${docBHTML}
         <div class="reasoning">
-          <strong>🧠 System Reasoning:</strong> ${rel.reasoning}
+          <strong>💡 Explanation / Result:</strong> ${rel.reasoning}
         </div>
         ${mitigationHTML}
       `;
@@ -92,22 +92,21 @@ function renderCases(cases) {
   });
 }
 
-// Render facts table
+// Render facts table in simple format
 function renderFactsTable(facts) {
   const tbody = document.getElementById("factsTableBody");
   tbody.innerHTML = "";
 
   if (!facts || facts.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #777;">No facts extracted yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #777;">No facts extracted yet.</td></tr>`;
     return;
   }
 
   facts.forEach(f => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><strong>${f.entity}</strong></td>
-      <td>${f.metric_name}</td>
-      <td><strong>${f.raw_value}</strong></td>
+      <td><strong>${f.metric_name}</strong><br><span style="font-size: 12px; color: #666;">(${f.entity})</span></td>
+      <td><strong style="color: #2980b9;">${f.raw_value}</strong></td>
       <td>${f.timeframe}</td>
       <td>${f.evidence.doc_name}</td>
       <td>Page ${f.evidence.page_number}</td>
@@ -152,5 +151,6 @@ async function uploadPDF(file) {
     statusDiv.innerHTML = `<div style="color: #e74c3c; font-weight: bold; margin-bottom: 15px;">❌ Upload Failed: ${err.message}</div>`;
   }
 }
+
 
 
