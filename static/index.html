@@ -3,85 +3,77 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fact Knowledge Layer System</title>
+  <title>Fact Knowledge Layer</title>
   <link rel="stylesheet" href="/static/aws-theme.css">
 </head>
 <body>
 
   <!-- Header -->
   <header class="header">
-    <h1>⚡ Fact Knowledge Layer System</h1>
-    <p>Automated Fact Grounding & Cross-Document Reconciliation Engine</p>
-    <div class="student-info">
-      Superjoin Internship Assignment | <strong>Candidate: Abhi Pandey (23BAI10909)</strong>
-    </div>
+    <h1>Fact Knowledge Layer System</h1>
+    <p>Abhi Pandey (23BAI10909) | Superjoin Assignment</p>
   </header>
 
   <!-- Main Container -->
   <main class="container">
 
-    <!-- Dataset & Upload Control Box -->
+    <!-- Controls -->
     <div class="control-box">
       <div>
-        <label for="datasetSelect">Select Dataset:</label>
+        <label for="datasetSelect">Dataset:</label>
         <select id="datasetSelect" onchange="loadDataset(this.value)">
-          <option value="delhivery">Delhivery Corporate Filings (Prospectus, FY24, Q4 FY24)</option>
-          <option value="india-macroeconomy">India Macroeconomy Reports (Economic Survey, RBI, IMF)</option>
+          <option value="delhivery">Delhivery Filings</option>
+          <option value="india-macroeconomy">India Macroeconomy</option>
         </select>
       </div>
       <div>
-        <button class="btn" onclick="document.getElementById('pdfFileInput').click()">
-          📤 Upload Custom PDF Document
-        </button>
+        <button class="btn" onclick="document.getElementById('pdfFileInput').click()">Upload PDF</button>
         <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;" onchange="uploadPDF(this.files[0])">
       </div>
     </div>
     
     <div id="uploadStatus"></div>
 
-    <!-- Section 1: The 4 Required Cases -->
+    <!-- Section 1: Cases -->
     <div class="section">
-      <h2>🎯 The 4 Benchmark Cases</h2>
-      <p style="font-size: 13.5px; color: #666; margin-bottom: 15px;">
-        Every extracted fact is grounded with verbatim quotes, page numbers, and reconciled cross-document logic.
-      </p>
+      <h2>1. Benchmark Cases</h2>
       <div id="casesGrid">
-        <!-- Dynamically loaded -->
+        <!-- Loaded by JS -->
       </div>
     </div>
 
-    <!-- Section 2: All Extracted Facts Table -->
+    <!-- Section 2: Facts Table -->
     <div class="section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h2 style="margin: 0; border: none; padding: 0;">📊 All Extracted Facts (<span id="factCountText">0</span>)</h2>
-        <input type="text" id="factSearch" placeholder="🔍 Search facts..." onkeyup="filterFactsTable()" style="width: 250px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h2 style="margin: 0; border: none; padding: 0;">2. Extracted Facts (<span id="factCountText">0</span>)</h2>
+        <input type="text" id="factSearch" placeholder="Search facts..." onkeyup="filterFactsTable()" style="width: 200px;">
       </div>
       <table>
         <thead>
           <tr>
-            <th>Metric & Entity</th>
-            <th>Extracted Value</th>
-            <th>Year / Time</th>
-            <th>Source Document</th>
+            <th>Metric</th>
+            <th>Value</th>
+            <th>Timeframe</th>
+            <th>Document</th>
             <th>Page</th>
-            <th>Evidence Quote</th>
+            <th>Quote</th>
           </tr>
         </thead>
         <tbody id="factsTableBody">
-          <!-- Dynamically loaded -->
+          <!-- Loaded by JS -->
         </tbody>
       </table>
     </div>
 
   </main>
 
-  <!-- Simple Footer -->
   <footer class="footer">
-    Fact Knowledge Layer System &bull; Superjoin Internship Assignment &bull; Built with FastAPI & Python
+    Fact Knowledge Layer System
   </footer>
 
   <script src="/static/app.js"></script>
 </body>
 </html>
+
 
 
