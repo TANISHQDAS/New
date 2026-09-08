@@ -3,169 +3,86 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fact Knowledge Layer | Modern Grounding Engine</title>
+  <title>Fact Knowledge Layer System</title>
   <link rel="stylesheet" href="/static/aws-theme.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
 </head>
 <body>
 
-  <!-- Header Bar -->
-  <header class="aws-header">
-    <div class="aws-brand">
-      <div class="brand-icon">⚡</div>
-      <div class="aws-title">
-        <h1>Fact Knowledge Layer Engine</h1>
-        <p>Automated Grounding, Entity Linking & Cross-Doc Reconciliation</p>
-      </div>
-    </div>
-    <div class="aws-user-badge">
-      <span>👨‍💻 Candidate:</span> <strong>Abhi Pandey (23BAI10909)</strong>
+  <!-- Header -->
+  <header class="header">
+    <h1>⚡ Fact Knowledge Layer System</h1>
+    <p>Automated Fact Grounding & Cross-Document Reconciliation Engine</p>
+    <div class="student-info">
+      Superjoin Internship Assignment | <strong>Candidate: Abhi Pandey (23BAI10909)</strong>
     </div>
   </header>
 
-  <!-- Control Bar -->
-  <div class="aws-control-bar">
-    <div class="aws-dataset-selector">
-      <label for="datasetSelect">📂 Active Dataset:</label>
-      <select id="datasetSelect" class="aws-select" onchange="loadDataset(this.value)">
-        <option value="delhivery">Delhivery Filings (Prospectus, FY24 Annual Report, Q4 FY24)</option>
-        <option value="india-macroeconomy">India Macroeconomy (Economic Survey, RBI, IMF)</option>
-      </select>
-    </div>
-    <div>
-      <button class="aws-btn" onclick="document.getElementById('pdfFileInput').click()">
-        📤 Upload PDF Document
-      </button>
-      <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;" onchange="uploadPDF(this.files[0])">
-    </div>
-  </div>
-
-  <!-- Navigation Tabs -->
-  <div class="aws-tabs">
-    <div class="aws-tab active" onclick="switchTab('showcase', this)">
-      <span>🎯 4 Core Cases</span>
-      <span class="tab-badge" id="badgeCases">4</span>
-    </div>
-    <div class="aws-tab" onclick="switchTab('facts', this)">
-      <span>📊 Extracted Facts</span>
-      <span class="tab-badge" id="badgeFacts">--</span>
-    </div>
-    <div class="aws-tab" onclick="switchTab('graph', this)">
-      <span>🔗 Comparison Matrix</span>
-      <span class="tab-badge" id="badgeMatrix">4</span>
-    </div>
-    <div class="aws-tab" onclick="switchTab('upload', this)">
-      <span>⚡ PDF Parser</span>
-    </div>
-  </div>
-
   <!-- Main Container -->
-  <main class="aws-container">
+  <main class="container">
 
-    <!-- Key Metrics Cards -->
-    <div class="aws-metrics-grid">
-      <div class="aws-metric-card">
-        <div class="label">Extracted Facts</div>
-        <div class="val" id="statFactCount">--</div>
-        <div class="subtext">Grounded with verbatim quotes</div>
+    <!-- Dataset & Upload Control Box -->
+    <div class="control-box">
+      <div>
+        <label for="datasetSelect">Select Dataset:</label>
+        <select id="datasetSelect" onchange="loadDataset(this.value)">
+          <option value="delhivery">Delhivery Corporate Filings (Prospectus, FY24, Q4 FY24)</option>
+          <option value="india-macroeconomy">India Macroeconomy Reports (Economic Survey, RBI, IMF)</option>
+        </select>
       </div>
-      <div class="aws-metric-card">
-        <div class="label">Reconciled Cases</div>
-        <div class="val" id="statCaseCount" style="color: var(--case1-color);">4 / 4</div>
-        <div class="subtext">All Superjoin benchmarks covered</div>
+      <div>
+        <button class="btn" onclick="document.getElementById('pdfFileInput').click()">
+          📤 Upload Custom PDF Document
+        </button>
+        <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;" onchange="uploadPDF(this.files[0])">
       </div>
-      <div class="aws-metric-card">
-        <div class="label">Source Documents</div>
-        <div class="val" id="statDocCount">3 PDFs</div>
-        <div class="subtext" id="statDocSubtext">Corporate filings & reports</div>
-      </div>
-      <div class="aws-metric-card">
-        <div class="label">Grounding Precision</div>
-        <div class="val" style="color: var(--case1-color);">100%</div>
-        <div class="subtext">Exact page & quote binding</div>
+    </div>
+    
+    <div id="uploadStatus"></div>
+
+    <!-- Section 1: The 4 Required Cases -->
+    <div class="section">
+      <h2>🎯 The 4 Benchmark Cases</h2>
+      <p style="font-size: 13.5px; color: #666; margin-bottom: 15px;">
+        Every extracted fact is grounded with verbatim quotes, page numbers, and reconciled cross-document logic.
+      </p>
+      <div id="casesGrid">
+        <!-- Dynamically loaded -->
       </div>
     </div>
 
-    <!-- TAB 1: 4 REQUIRED CASES -->
-    <div id="tab-showcase" class="tab-content">
-      <div class="aws-card">
-        <div class="aws-card-header">
-          <h2>🎯 Assignment Benchmark: The 4 Core Reconciliation Cases</h2>
-          <span class="header-subtitle">Side-by-side evidence comparison grounded with page numbers & quotes</span>
-        </div>
-        <div id="casesGrid" class="case-grid">
-          <!-- Dynamically populated -->
-        </div>
+    <!-- Section 2: All Extracted Facts Table -->
+    <div class="section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; border: none; padding: 0;">📊 All Extracted Facts (<span id="factCountText">0</span>)</h2>
+        <input type="text" id="factSearch" placeholder="🔍 Search facts..." onkeyup="filterFactsTable()" style="width: 250px;">
       </div>
-    </div>
-
-    <!-- TAB 2: FACTS TABLE -->
-    <div id="tab-facts" class="tab-content" style="display: none;">
-      <div class="aws-card">
-        <div class="aws-card-header">
-          <h2>📊 Extracted Fact Repository</h2>
-          <input type="text" id="factSearch" class="aws-select" placeholder="🔍 Search facts, metrics, quotes..." onkeyup="filterFactsTable()" style="width: 300px;">
-        </div>
-        <div class="table-wrapper">
-          <table class="aws-table" id="factsTable">
-            <thead>
-              <tr>
-                <th>Entity</th>
-                <th>Metric Name</th>
-                <th>Raw Value</th>
-                <th>Timeframe</th>
-                <th>Scope</th>
-                <th>Source Document</th>
-                <th>Page</th>
-                <th>Verbatim Evidence Quote</th>
-              </tr>
-            </thead>
-            <tbody id="factsTableBody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 3: RECONCILIATION MATRIX -->
-    <div id="tab-graph" class="tab-content" style="display: none;">
-      <div class="aws-card">
-        <div class="aws-card-header">
-          <h2>🔗 Cross-Document Comparison Matrix</h2>
-          <span class="header-subtitle">Pairwise relationship mapping between facts</span>
-        </div>
-        <div id="reconciliationMatrix">
-          <!-- Dynamically populated -->
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 4: PDF UPLOADER -->
-    <div id="tab-upload" class="tab-content" style="display: none;">
-      <div class="aws-card">
-        <div class="aws-card-header">
-          <h2>⚡ Live PDF Processing Engine</h2>
-          <span class="header-subtitle">Upload any corporate filing or financial report for instant fact grounding</span>
-        </div>
-        <div class="upload-dropzone" onclick="document.getElementById('pdfFileInput').click()">
-          <div class="upload-icon">📄</div>
-          <p>Click or drag & drop your PDF file here</p>
-          <span style="font-size: 13px; color: var(--text-muted);">Supports un-templated financial disclosures, quarterly reports & research papers</span>
-        </div>
-        <div id="uploadStatus" style="margin-top: 20px;"></div>
-      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Entity</th>
+            <th>Metric Name</th>
+            <th>Value</th>
+            <th>Timeframe</th>
+            <th>Document</th>
+            <th>Page</th>
+            <th>Verbatim Quote</th>
+          </tr>
+        </thead>
+        <tbody id="factsTableBody">
+          <!-- Dynamically loaded -->
+        </tbody>
+      </table>
     </div>
 
   </main>
 
-  <!-- Footer -->
-  <footer class="aws-footer">
-    <p>Superjoin Engineering Assignment | Candidate: <strong>Abhi Pandey (23BAI10909)</strong></p>
-    <p style="margin-top: 6px; font-size: 12px;">FastAPI & Python PDF NLP Engine &bull; Fact Knowledge Layer System</p>
+  <!-- Simple Footer -->
+  <footer class="footer">
+    Fact Knowledge Layer System &bull; Superjoin Internship Assignment &bull; Built with FastAPI & Python
   </footer>
 
   <script src="/static/app.js"></script>
 </body>
 </html>
+
 
